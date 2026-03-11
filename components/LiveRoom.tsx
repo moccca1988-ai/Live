@@ -321,7 +321,10 @@ function StreamContent({
                     <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
                       <ShoppingCart className="w-8 h-8 text-zinc-600" />
                     </div>
-                    <p className="text-zinc-500 font-bold">No products available.</p>
+                    <p className="text-zinc-500 font-bold mb-2">No products available.</p>
+                    <p className="text-zinc-600 text-xs">
+                      Checke Shopify für: {process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || "jayjaym.com"}
+                    </p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4">

@@ -18,7 +18,12 @@ export interface ShopifyProduct {
   variants: ShopifyVariant[];
 }
 
-export async function getLiveProducts(): Promise<ShopifyProduct[]> {
+export type GetLiveProductsResult = {
+  products: ShopifyProduct[];
+  error?: string;
+};
+
+export async function getLiveProducts(): Promise<GetLiveProductsResult> {
   try {
     const rawDomain = process.env.SHOPIFY_STORE_DOMAIN || process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || "jayjaym.com";
     // Strip protocol and trailing slash if present
@@ -27,14 +32,15 @@ export async function getLiveProducts(): Promise<ShopifyProduct[]> {
     const storefrontAccessToken = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || process.env.ACCESS_TOKEN;
 
     if (!domain || !storefrontAccessToken) {
-      console.error("Shopify credentials missing");
-      return [];
+      const errorMsg = `Shopify credentials missing. Domain: ${domain ? 'Set' : 'Missing'}, Token: ${storefrontAccessToken ? 'Set' : 'Missing'}`;
+      console.error(errorMsg);
+      return { products: [], error: errorMsg };
     }
 
     const url = `https://${domain}/api/2024-01/graphql.json`;
     const query = `
-      {
-        products(first: 20) {
+      query {
+        products(first: 10) {
           edges {
             node {
               id
@@ -81,17 +87,26 @@ export async function getLiveProducts(): Promise<ShopifyProduct[]> {
     });
 
     if (!response.ok) {
-      console.error("Shopify API response not OK:", response.statusText);
-      return [];
+      const errorMsg = `Shopify API response not OK: ${response.status} ${response.statusText}`;
+      console.error(errorMsg);
+      return { products: [], error: errorMsg };
     }
 
     const json = await response.json();
-    if (!json.data || !json.data.products) {
-      console.error("Shopify API error or empty response:", json);
-      return [];
+    
+    if (json.errors) {
+      const errorMsg = `Shopify GraphQL errors: ${JSON.stringify(json.errors)}`;
+      console.error(errorMsg);
+      return { products: [], error: errorMsg };
     }
 
-    return json.data.products.edges.map((edge: any) => {
+    if (!json.data || !json.data.products) {
+      const errorMsg = `Shopify API empty response: ${JSON.stringify(json)}`;
+      console.error(errorMsg);
+      return { products: [], error: errorMsg };
+    }
+
+    const products = json.data.products.edges.map((edge: any) => {
       const variants = edge.node.variants.edges.map((v: any) => ({
         id: v.node.id.split("/").pop(),
         title: v.node.title,
@@ -110,8 +125,18 @@ export async function getLiveProducts(): Promise<ShopifyProduct[]> {
         variants: variants,
       };
     });
-  } catch (error) {
-    console.error("Error fetching Shopify products in server action:", error);
-    return [];
+
+    if (products.length === 0) {
+      const errorMsg = `Shopify API returned 0 products. Query successful but list is empty.`;
+      console.warn(errorMsg);
+      return { products: [], error: errorMsg };
+    }
+
+    return { products };
+  } catch (error: any) {
+    const errorMsg = `Error fetching Shopify products: ${error.message}`;
+    console.error(errorMsg, error);
+    return { products: [], error: errorMsg };
   }
 }
+

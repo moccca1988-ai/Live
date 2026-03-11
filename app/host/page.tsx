@@ -14,7 +14,12 @@ export default function HostPage() {
   useEffect(() => {
     // Fetch products
     getLiveProducts()
-      .then(setProducts)
+      .then((res) => {
+        if (res.error) {
+          setShopifyError(res.error);
+        }
+        setProducts(res.products || []);
+      })
       .catch((err) => {
         console.error("Shopify fetch error:", err);
         setShopifyError(err.message || "Failed to load Shopify products");

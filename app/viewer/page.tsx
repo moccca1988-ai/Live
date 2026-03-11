@@ -13,7 +13,9 @@ export default function ViewerPage() {
 
   useEffect(() => {
     // Fetch products
-    getLiveProducts().then(setProducts).catch(console.error);
+    getLiveProducts()
+      .then((res) => setProducts(res.products || []))
+      .catch(console.error);
 
     // Fetch LiveKit token
     const fetchToken = async () => {
