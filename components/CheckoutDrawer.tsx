@@ -27,11 +27,10 @@ export function CheckoutDrawer({ product, isOpen, onClose }: CheckoutDrawerProps
 
   if (!product) return null;
 
-  const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || "jayjaym.com";
-  const cleanDomain = shopDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const checkoutDomain = "jayjaym.myshopify.com";
   const checkoutUrl = product.handle 
-    ? `https://${cleanDomain}/products/${product.handle}?variant=${selectedVariantId}`
-    : `https://${cleanDomain}/search?q=${encodeURIComponent(product.title)}`;
+    ? `https://${checkoutDomain}/products/${product.handle}?variant=${selectedVariantId}`
+    : `https://${checkoutDomain}/search?q=${encodeURIComponent(product.title)}`;
   const hasVariants = product.variants && product.variants.length > 1;
 
   const selectedVariant = product.variants?.find(v => v.id === selectedVariantId);
