@@ -19,6 +19,7 @@ import {
   ParticipantTile,
   VideoTrack,
   useDataChannel,
+  useParticipants,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import { Track } from "livekit-client";
@@ -69,7 +70,10 @@ function StreamContent({
   const [estimatedSales, setEstimatedSales] = useState<number>(0);
   const [prevPinnedProductId, setPrevPinnedProductId] = useState<string | null>(null);
   const [isProductDrawerOpen, setIsProductDrawerOpen] = useState(false);
-
+  
+  const participants = useParticipants();
+  const viewerCount = participants.length;
+  
   const currentPinnedId = pinnedProduct?.id ?? null;
   if (currentPinnedId !== prevPinnedProductId) {
     if (!pinnedProduct) {
@@ -180,7 +184,7 @@ function StreamContent({
               </div>
               <div className="bg-black/60 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/10 shadow-xl">
                 <Users className="w-3 h-3 text-blue-400" />
-                <span className="font-bold">1.2k</span>
+                <span className="font-bold">{viewerCount}</span>
               </div>
             </div>
             
