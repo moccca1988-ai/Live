@@ -2,13 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { LiveRoom } from "@/components/LiveRoom";
+import { getLiveProducts } from "@/app/actions/shopify";
+import { ShopifyProduct } from "@/lib/shopify";
 
 export default function ViewerPage() {
   const [token, setToken] = useState<string>("");
   const [username, setUsername] = useState<string>("");
+  const [products, setProducts] = useState<ShopifyProduct[]>([]);
   const [error, setError] = useState<string>("");
 
   useEffect(() => {
+    // Fetch products
+    getLiveProducts().then(setProducts).catch(console.error);
+
     // Fetch LiveKit token
     const fetchToken = async () => {
       // Generate a random username for the viewer
@@ -56,7 +62,7 @@ export default function ViewerPage() {
 
   return (
     <main className="flex h-screen w-full bg-zinc-950 text-white overflow-hidden">
-      <LiveRoom token={token} isHost={false} products={[]} />
+      <LiveRoom token={token} isHost={false} products={products} />
     </main>
   );
 }

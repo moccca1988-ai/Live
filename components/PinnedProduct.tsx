@@ -69,14 +69,8 @@ export function PinnedProduct({
       ? `https://${cleanDomain}/products/${product.handle}?variant=${selectedVariantId}`
       : `https://${cleanDomain}/search?q=${encodeURIComponent(product.title)}`;
 
-    // Erstellt ein unsichtbares Element, das den Referrer unterdrückt
-    const link = document.createElement('a');
-    link.href = checkoutUrl;
-    link.rel = 'noreferrer'; // Dies ist der entscheidende Teil für Cloudflare
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Open in new window with noreferrer to bypass Cloudflare
+    window.open(checkoutUrl, '_blank', 'noreferrer');
   };
 
   const renderInventoryBadge = () => {

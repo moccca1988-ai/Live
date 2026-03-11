@@ -106,16 +106,16 @@ export function CheckoutDrawer({ product, isOpen, onClose }: CheckoutDrawerProps
                 Sold Out
               </button>
             ) : (
-              <a
-                href={checkoutUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={onClose}
+              <button
+                onClick={() => {
+                  window.open(checkoutUrl, '_blank', 'noreferrer');
+                  onClose();
+                }}
                 className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 px-6 rounded-xl text-lg font-bold transition-colors shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
               >
                 <ShoppingCart className="w-5 h-5" />
                 Proceed to Checkout
-              </a>
+              </button>
             )}
           </motion.div>
         </>

@@ -173,79 +173,72 @@ function StreamContent({
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen w-full bg-black overflow-hidden">
-      {/* Video Section */}
-      <div className="relative flex-1 bg-zinc-900 flex items-center justify-center overflow-hidden w-full h-full">
-        <div className="relative w-full h-full flex items-center justify-center">
-          {hostTrack && hostTrack.publication ? (
-            <VideoTrack
-              trackRef={hostTrack}
-              className="w-full h-full object-cover"
-              style={{ width: '100%', height: '100%' }}
+    <div className="relative h-screen w-full bg-black overflow-hidden">
+      {/* Video Background Anker */}
+      <div className="fixed inset-0 z-0 bg-zinc-900 flex items-center justify-center">
+        {hostTrack && hostTrack.publication ? (
+          <VideoTrack
+            trackRef={hostTrack}
+            className="w-full h-full object-cover"
+            style={{ width: '100%', height: '100%' }}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full w-full bg-zinc-950 relative overflow-hidden">
+            <Image 
+              src="https://picsum.photos/seed/stream-bg/1920/1080?blur=10" 
+              alt="Coming Soon" 
+              fill 
+              className="object-cover opacity-30"
+              referrerPolicy="no-referrer"
             />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full w-full bg-zinc-950 relative overflow-hidden">
-              <Image 
-                src="https://picsum.photos/seed/stream-bg/1920/1080?blur=10" 
-                alt="Coming Soon" 
-                fill 
-                className="object-cover opacity-30"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/50 to-black" />
-              <div className="relative z-10 flex flex-col items-center">
-                <div className="w-24 h-24 rounded-full bg-zinc-900/80 border-2 border-emerald-500/50 flex items-center justify-center mb-8 shadow-[0_0_50px_rgba(52,211,153,0.2)] backdrop-blur-xl">
-                  <Video className="w-10 h-10 text-emerald-400 animate-pulse" />
-                </div>
-                <h2 className="text-4xl font-black text-white mb-4 tracking-tighter uppercase italic">Coming Soon</h2>
-                <div className="flex items-center gap-3 px-4 py-2 bg-white/5 backdrop-blur-md rounded-full border border-white/10">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                  <p className="text-zinc-300 font-bold text-xs uppercase tracking-widest">Host is preparing the stage</p>
-                </div>
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/50 to-black" />
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="w-24 h-24 rounded-full bg-zinc-900/80 border-2 border-emerald-500/50 flex items-center justify-center mb-8 shadow-[0_0_50px_rgba(52,211,153,0.2)] backdrop-blur-xl">
+                <Video className="w-10 h-10 text-emerald-400 animate-pulse" />
               </div>
-            </div>
-          )}
-
-          {/* Video Overlays (Badges, Stats) */}
-          <div className="absolute top-4 left-4 right-4 flex justify-between items-start pointer-events-none z-20">
-            <div className="flex flex-col gap-2">
-              <div className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest animate-pulse shadow-lg flex items-center gap-1 w-fit">
-                <div className="w-1.5 h-1.5 rounded-full bg-white" />
-                Live
+              <h2 className="text-4xl font-black text-white mb-4 tracking-tighter uppercase italic">Coming Soon</h2>
+              <div className="flex items-center gap-3 px-4 py-2 bg-white/5 backdrop-blur-md rounded-full border border-white/10">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                <p className="text-zinc-300 font-bold text-xs uppercase tracking-widest">Host is preparing the stage</p>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="bg-black/60 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/10 shadow-xl">
-                  <Users className="w-3 h-3 text-blue-400" />
-                  <span className="font-bold">{viewerCount}</span>
-                </div>
-                {isHost && (
-                  <div className="bg-black/60 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg flex items-center gap-2 border border-white/10 shadow-xl">
-                    <Mic className="w-3 h-3 text-emerald-400" />
-                    <div className="w-12 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                      <motion.div 
-                        animate={{ width: `${Math.min(micLevel * 2, 100)}%` }}
-                        className="h-full bg-emerald-400"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            <div className="bg-black/60 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/10 shadow-xl">
-              <Heart className="w-3 h-3 text-pink-400" />
-              <span className="font-bold">8.4k</span>
             </div>
           </div>
+        )}
+      </div>
 
-          {/* Floating Hearts - Immersive layer */}
-          <div className="absolute inset-0 pointer-events-none z-10">
-            <FloatingHearts isHost={isHost} />
+      {/* Overlay Layer */}
+      <div className="relative z-10 h-full w-full pointer-events-none flex flex-col">
+        {/* Top Bar: Stats & Badges */}
+        <div className="p-4 flex justify-between items-start">
+          <div className="flex flex-col gap-2">
+            <div className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest animate-pulse shadow-lg flex items-center gap-1 w-fit">
+              <div className="w-1.5 h-1.5 rounded-full bg-white" />
+              Live
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="bg-black/40 backdrop-blur-md text-white text-[10px] px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-white/10 shadow-xl">
+                <Users className="w-3 h-3 text-blue-400" />
+                <span className="font-bold">{viewerCount}</span>
+              </div>
+              {isHost && (
+                <div className="bg-black/40 backdrop-blur-md text-white text-[10px] px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10 shadow-xl">
+                  <TrendingUp className="w-3 h-3 text-emerald-400" />
+                  <span className="font-bold">${estimatedSales.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
           </div>
+          
+          <div className="bg-black/40 backdrop-blur-md text-white text-[10px] px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-white/10 shadow-xl">
+            <Heart className="w-3 h-3 text-pink-400" />
+            <span className="font-bold">8.4k</span>
+          </div>
+        </div>
 
-          {/* Pinned Product Overlay (Viewer/Host) */}
+        {/* Middle Area: Pinned Product */}
+        <div className="flex-1 flex items-center justify-center">
           {pinnedProduct && (
-            <div className="absolute inset-0 z-30 pointer-events-none">
+            <div className="w-full max-w-md px-4 pointer-events-auto">
               <PinnedProduct
                 product={pinnedProduct}
                 isHost={isHost}
@@ -254,57 +247,39 @@ function StreamContent({
               />
             </div>
           )}
+        </div>
 
-          {/* Host Product Control Trigger (Mobile Overlay) */}
-          {isHost && (
-            <div className="absolute bottom-4 right-4 z-40 lg:hidden">
+        {/* Bottom Area: Chat & Controls */}
+        <div className="p-4 flex items-end justify-between gap-4">
+          {/* Chat Overlay - Floating Bottom Left */}
+          <div className="w-full max-w-[320px] h-[300px] bg-black/30 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden pointer-events-auto flex flex-col">
+            <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+              <ChatOverlay isHost={isHost} />
+            </div>
+          </div>
+
+          {/* Host Controls / Product Trigger */}
+          <div className="flex flex-col gap-3 pointer-events-auto">
+            {isHost && (
               <button
                 onClick={() => setIsProductDrawerOpen(true)}
                 className="w-14 h-14 bg-white text-black rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
               >
                 <ShoppingCart className="w-6 h-6" />
               </button>
-            </div>
-          )}
+            )}
+            {!isHost && (
+              <button className="w-12 h-12 bg-pink-500 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-transform">
+                <Heart className="w-6 h-6 fill-current" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Sidebar (Desktop) / Bottom Area (Mobile) */}
-      <div className="flex-1 lg:w-96 lg:flex-none bg-zinc-950 border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col z-40 overflow-hidden">
-        {/* Host Analytics (Desktop Only or Top of Mobile Area) */}
-        {isHost && (
-          <div className="p-4 border-b border-white/5 bg-zinc-900/50 shrink-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-zinc-400">
-                <TrendingUp className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em]">Revenue</h3>
-              </div>
-              <span className="text-emerald-400 text-xl font-black tracking-tighter">
-                ${estimatedSales.toFixed(2)}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Chat Area - Scrollable */}
-        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-          <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
-            <ChatOverlay isHost={isHost} />
-          </div>
-        </div>
-
-        {/* Desktop Host Controls */}
-        {isHost && (
-          <div className="hidden lg:block p-6 bg-zinc-900/80 border-t border-white/10 shrink-0">
-            <button
-              onClick={() => setIsProductDrawerOpen(true)}
-              className="w-full py-4 bg-white text-black rounded-2xl font-black text-sm hover:bg-zinc-200 transition-all flex items-center justify-center gap-3 shadow-xl active:scale-[0.98]"
-            >
-              <ShoppingCart className="w-5 h-5" />
-              MANAGE PRODUCTS
-            </button>
-          </div>
-        )}
+      {/* Floating Hearts Layer */}
+      <div className="fixed inset-0 pointer-events-none z-20">
+        <FloatingHearts isHost={isHost} />
       </div>
 
       {/* Host Product Drawer (Bottom Sheet) */}

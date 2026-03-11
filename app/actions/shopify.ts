@@ -19,59 +19,57 @@ export interface ShopifyProduct {
 }
 
 export async function getLiveProducts(): Promise<ShopifyProduct[]> {
-  const rawDomain = process.env.SHOPIFY_STORE_DOMAIN || process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || "jayjaym.com";
-  // Strip protocol and trailing slash if present
-  const cleanDomain = rawDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-  const domain = cleanDomain === "jayjaym.com" ? "www.jayjaym.com" : cleanDomain;
-  const storefrontAccessToken = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || process.env.ACCESS_TOKEN;
+  try {
+    const rawDomain = process.env.SHOPIFY_STORE_DOMAIN || process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || "jayjaym.com";
+    // Strip protocol and trailing slash if present
+    const cleanDomain = rawDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const domain = cleanDomain === "jayjaym.com" ? "www.jayjaym.com" : cleanDomain;
+    const storefrontAccessToken = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || process.env.ACCESS_TOKEN;
 
-  if (!domain || !storefrontAccessToken) {
-    const missing = [];
-    if (!domain) missing.push("Domain");
-    if (!storefrontAccessToken) missing.push("Access Token");
-    throw new Error(`Shopify credentials missing: ${missing.join(", ")}`);
-  }
+    if (!domain || !storefrontAccessToken) {
+      console.error("Shopify credentials missing");
+      return [];
+    }
 
-  const url = `https://${domain}/api/2024-01/graphql.json`;
-  const query = `
-    {
-      products(first: 20) {
-        edges {
-          node {
-            id
-            title
-            handle
-            priceRange {
-              minVariantPrice {
-                amount
-                currencyCode
-              }
-            }
-            images(first: 1) {
-              edges {
-                node {
-                  url
-                  altText
+    const url = `https://${domain}/api/2024-01/graphql.json`;
+    const query = `
+      {
+        products(first: 20) {
+          edges {
+            node {
+              id
+              title
+              handle
+              priceRange {
+                minVariantPrice {
+                  amount
+                  currencyCode
                 }
               }
-            }
-            variants(first: 10) {
-              edges {
-                node {
-                  id
-                  title
-                  availableForSale
-                  quantityAvailable
+              images(first: 1) {
+                edges {
+                  node {
+                    url
+                    altText
+                  }
+                }
+              }
+              variants(first: 10) {
+                edges {
+                  node {
+                    id
+                    title
+                    availableForSale
+                    quantityAvailable
+                  }
                 }
               }
             }
           }
         }
       }
-    }
-  `;
+    `;
 
-  try {
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -81,6 +79,11 @@ export async function getLiveProducts(): Promise<ShopifyProduct[]> {
       body: JSON.stringify({ query }),
       cache: 'no-store'
     });
+
+    if (!response.ok) {
+      console.error("Shopify API response not OK:", response.statusText);
+      return [];
+    }
 
     const json = await response.json();
     if (!json.data || !json.data.products) {
