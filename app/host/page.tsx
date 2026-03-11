@@ -9,10 +9,16 @@ export default function HostPage() {
   const [token, setToken] = useState<string>("");
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
   const [error, setError] = useState<string>("");
+  const [shopifyError, setShopifyError] = useState<string>("");
 
   useEffect(() => {
     // Fetch products
-    getLiveProducts().then(setProducts);
+    getLiveProducts()
+      .then(setProducts)
+      .catch((err) => {
+        console.error("Shopify fetch error:", err);
+        setShopifyError(err.message || "Failed to load Shopify products");
+      });
 
     // Fetch LiveKit token
     const fetchToken = async () => {
@@ -56,7 +62,13 @@ export default function HostPage() {
   }
 
   return (
-    <main className="flex h-screen w-full bg-zinc-950 text-white overflow-hidden">
+    <main className="flex h-screen w-full bg-zinc-950 text-white overflow-hidden relative">
+      {shopifyError && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[200] bg-red-500/90 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-2xl backdrop-blur-md border border-red-400/50 flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+          SHOPIFY ERROR: {shopifyError}
+        </div>
+      )}
       <LiveRoom token={token} isHost={true} products={products} />
     </main>
   );

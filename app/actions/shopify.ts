@@ -19,15 +19,17 @@ export interface ShopifyProduct {
 }
 
 export async function getLiveProducts(): Promise<ShopifyProduct[]> {
-  const rawDomain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || "jayjaym.com";
+  const rawDomain = process.env.SHOPIFY_STORE_DOMAIN || process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || "jayjaym.com";
   // Strip protocol and trailing slash if present
   const cleanDomain = rawDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
   const domain = cleanDomain === "jayjaym.com" ? "www.jayjaym.com" : cleanDomain;
-  const storefrontAccessToken = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN;
+  const storefrontAccessToken = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || process.env.ACCESS_TOKEN;
 
   if (!domain || !storefrontAccessToken) {
-    console.warn("Shopify credentials missing on server. Domain:", domain, "Token present:", !!storefrontAccessToken);
-    return [];
+    const missing = [];
+    if (!domain) missing.push("Domain");
+    if (!storefrontAccessToken) missing.push("Access Token");
+    throw new Error(`Shopify credentials missing: ${missing.join(", ")}`);
   }
 
   const url = `https://${domain}/api/2024-01/graphql.json`;

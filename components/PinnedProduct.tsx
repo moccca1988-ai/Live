@@ -64,7 +64,10 @@ export function PinnedProduct({
     const cleanDomain = rawDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
     
     // Redirect to product page with variant selected instead of cart
-    const checkoutUrl = `https://${cleanDomain}/products/${product.handle}?variant=${selectedVariantId}`;
+    // Fallback to search if handle is missing
+    const checkoutUrl = product.handle 
+      ? `https://${cleanDomain}/products/${product.handle}?variant=${selectedVariantId}`
+      : `https://${cleanDomain}/search?q=${encodeURIComponent(product.title)}`;
 
     // Erstellt ein unsichtbares Element, das den Referrer unterdrückt
     const link = document.createElement('a');

@@ -175,12 +175,13 @@ function StreamContent({
   return (
     <div className="flex flex-col lg:flex-row h-screen w-full bg-black overflow-hidden">
       {/* Video Section */}
-      <div className="relative flex-none lg:flex-1 bg-zinc-900 flex items-center justify-center overflow-hidden aspect-[9/16] lg:aspect-auto w-full lg:w-auto">
-        <div className="relative w-full h-full">
+      <div className="relative flex-1 bg-zinc-900 flex items-center justify-center overflow-hidden w-full h-full">
+        <div className="relative w-full h-full flex items-center justify-center">
           {hostTrack && hostTrack.publication ? (
             <VideoTrack
-              trackRef={hostTrack as any}
-              className="h-full w-full object-cover lg:object-contain"
+              trackRef={hostTrack}
+              className="w-full h-full object-cover"
+              style={{ width: '100%', height: '100%' }}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full w-full bg-zinc-950 relative overflow-hidden">
