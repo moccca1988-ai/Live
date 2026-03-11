@@ -1,0 +1,62 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { LiveRoom } from "@/components/LiveRoom";
+import { getLiveProducts, ShopifyProduct } from "@/lib/shopify";
+
+export default function HostPage() {
+  const [token, setToken] = useState<string>("");
+  const [products, setProducts] = useState<ShopifyProduct[]>([]);
+  const [error, setError] = useState<string>("");
+
+  useEffect(() => {
+    // Fetch products
+    getLiveProducts().then(setProducts);
+
+    // Fetch LiveKit token
+    const fetchToken = async () => {
+      try {
+        const res = await fetch(
+          "/api/livekit/token?room=live-shopping-room&username=host&isHost=true",
+        );
+        const data = await res.json();
+        if (data.token) {
+          setToken(data.token);
+        } else {
+          setError(data.details || data.error || "Failed to get token");
+        }
+      } catch (e) {
+        setError("Error fetching token");
+      }
+    };
+    fetchToken();
+  }, []);
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-950 text-white p-6 text-center">
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 max-w-md">
+          <h2 className="text-xl font-bold text-red-500 mb-2">Configuration Required</h2>
+          <p className="text-zinc-300 mb-4">{error}</p>
+          <p className="text-sm text-zinc-400">
+            Please add the required LiveKit credentials in the AI Studio Secrets panel.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!token) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-zinc-950 text-white">
+        <div className="animate-pulse">Preparing live stream...</div>
+      </div>
+    );
+  }
+
+  return (
+    <main className="flex h-screen w-full bg-zinc-950 text-white overflow-hidden">
+      <LiveRoom token={token} isHost={true} products={products} />
+    </main>
+  );
+}

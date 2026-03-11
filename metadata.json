@@ -1,0 +1,5 @@
+{
+  "name": "Shopify Live Stream App",
+  "description": "A minimalist, high-performance live shopping app using Next.js, Tailwind CSS, and LiveKit.",
+  "requestFramePermissions": ["camera", "microphone"]
+}
