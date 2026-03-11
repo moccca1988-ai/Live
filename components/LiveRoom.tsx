@@ -7,7 +7,7 @@ import { ProductList } from "./ProductList";
 import { ChatOverlay } from "./ChatOverlay";
 import { FloatingHearts } from "./FloatingHearts";
 import { getProductInventory } from "@/app/actions/inventory";
-import { Users, Heart, DollarSign, Video, TrendingUp, ShoppingCart, X } from "lucide-react";
+import { Users, Heart, DollarSign, Video, TrendingUp, ShoppingCart, X, Mic, MicOff } from "lucide-react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -31,7 +31,10 @@ interface LiveRoomProps {
 }
 
 export function LiveRoom({ token, isHost, products }: LiveRoomProps) {
-  const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
+  const rawUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
+  const serverUrl = rawUrl 
+    ? (rawUrl.startsWith('http') ? rawUrl.replace('http', 'ws') : (rawUrl.startsWith('ws') ? rawUrl : 'wss://' + rawUrl))
+    : undefined;
 
   if (!serverUrl) {
     return (
@@ -50,6 +53,10 @@ export function LiveRoom({ token, isHost, products }: LiveRoomProps) {
       token={token}
       serverUrl={serverUrl}
       connect={true}
+      options={{
+        adaptiveStream: true,
+        dynacast: true,
+      }}
       className="relative flex h-full w-full bg-black overflow-hidden"
     >
       <StreamContent isHost={isHost} products={products} />
@@ -83,6 +90,19 @@ function StreamContent({
   }
   
   const { localParticipant } = useLocalParticipant();
+  
+  // Mic Level Indicator Logic
+  const [micLevel, setMicLevel] = useState(0);
+  useEffect(() => {
+    if (!isHost || !localParticipant) return;
+    
+    const interval = setInterval(() => {
+      // LiveKit audioLevel is 0-1
+      setMicLevel(localParticipant.audioLevel * 100);
+    }, 100);
+    
+    return () => clearInterval(interval);
+  }, [isHost, localParticipant]);
 
   const tracks = useTracks(
     [
@@ -164,13 +184,23 @@ function StreamContent({
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full w-full bg-zinc-950 relative overflow-hidden">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(52,211,153,0.15)_0%,transparent_60%)] animate-pulse" />
+              <Image 
+                src="https://picsum.photos/seed/stream-bg/1920/1080?blur=10" 
+                alt="Coming Soon" 
+                fill 
+                className="object-cover opacity-30"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/50 to-black" />
               <div className="relative z-10 flex flex-col items-center">
-                <div className="w-20 h-20 rounded-full bg-zinc-900 border-2 border-emerald-500/50 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(52,211,153,0.3)]">
-                  <div className="w-8 h-8 rounded-full bg-emerald-400 animate-ping" />
+                <div className="w-24 h-24 rounded-full bg-zinc-900/80 border-2 border-emerald-500/50 flex items-center justify-center mb-8 shadow-[0_0_50px_rgba(52,211,153,0.2)] backdrop-blur-xl">
+                  <Video className="w-10 h-10 text-emerald-400 animate-pulse" />
                 </div>
-                <h2 className="text-xl font-bold text-white mb-2">Stream starting soon</h2>
-                <p className="text-zinc-400 text-center text-sm max-w-[250px]">The host is getting ready. Grab a snack and hold tight!</p>
+                <h2 className="text-4xl font-black text-white mb-4 tracking-tighter uppercase italic">Coming Soon</h2>
+                <div className="flex items-center gap-3 px-4 py-2 bg-white/5 backdrop-blur-md rounded-full border border-white/10">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  <p className="text-zinc-300 font-bold text-xs uppercase tracking-widest">Host is preparing the stage</p>
+                </div>
               </div>
             </div>
           )}
@@ -182,9 +212,22 @@ function StreamContent({
                 <div className="w-1.5 h-1.5 rounded-full bg-white" />
                 Live
               </div>
-              <div className="bg-black/60 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/10 shadow-xl">
-                <Users className="w-3 h-3 text-blue-400" />
-                <span className="font-bold">{viewerCount}</span>
+              <div className="flex items-center gap-2">
+                <div className="bg-black/60 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/10 shadow-xl">
+                  <Users className="w-3 h-3 text-blue-400" />
+                  <span className="font-bold">{viewerCount}</span>
+                </div>
+                {isHost && (
+                  <div className="bg-black/60 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg flex items-center gap-2 border border-white/10 shadow-xl">
+                    <Mic className="w-3 h-3 text-emerald-400" />
+                    <div className="w-12 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                      <motion.div 
+                        animate={{ width: `${Math.min(micLevel * 2, 100)}%` }}
+                        className="h-full bg-emerald-400"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             

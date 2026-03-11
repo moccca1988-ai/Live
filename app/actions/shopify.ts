@@ -10,6 +10,7 @@ export interface ShopifyVariant {
 export interface ShopifyProduct {
   id: string;
   title: string;
+  handle: string;
   price: string;
   currency: string;
   imageUrl: string;
@@ -96,9 +97,10 @@ export async function getLiveProducts(): Promise<ShopifyProduct[]> {
       return {
         id: edge.node.id,
         title: edge.node.title,
+        handle: edge.node.handle,
         price: edge.node.priceRange.minVariantPrice.amount,
         currency: edge.node.priceRange.minVariantPrice.currencyCode,
-        imageUrl: edge.node.images.edges[0]?.node.url || "",
+        imageUrl: (edge.node.images.edges[0]?.node.url || "").replace(/^http:\/\//, 'https://'),
         variantId: variants[0]?.id || "",
         variants: variants,
       };

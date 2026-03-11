@@ -28,7 +28,8 @@ export function CheckoutDrawer({ product, isOpen, onClose }: CheckoutDrawerProps
   if (!product) return null;
 
   const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || "jayjaym.com";
-  const checkoutUrl = `https://${shopDomain}/cart/${selectedVariantId}:1`;
+  const cleanDomain = shopDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const checkoutUrl = `https://${cleanDomain}/products/${product.handle}?variant=${selectedVariantId}`;
   const hasVariants = product.variants && product.variants.length > 1;
 
   const selectedVariant = product.variants?.find(v => v.id === selectedVariantId);

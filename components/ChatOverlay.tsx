@@ -27,11 +27,25 @@ export function ChatOverlay({ isHost }: ChatOverlayProps) {
       const data = JSON.parse(new TextDecoder().decode(msg.payload));
       if (data.type === "CHAT_MESSAGE") {
         setMessages((prev) => [...prev, data.message].slice(-50));
+      } else if (data.type === "HIDE_MESSAGE") {
+        setMessages((prev) => prev.filter((m) => m.id !== data.messageId));
       }
     } catch (e) {
       console.error("Failed to parse chat message", e);
     }
   });
+
+  const handleHideMessage = (messageId: string) => {
+    if (!isHost) return;
+    
+    const payload = new TextEncoder().encode(
+      JSON.stringify({ type: "HIDE_MESSAGE", messageId }),
+    );
+    send(payload, { reliable: true });
+    
+    // Also update local state
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -83,8 +97,14 @@ export function ChatOverlay({ isHost }: ChatOverlayProps) {
                   {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
-              <div className="text-sm text-white bg-white/5 border border-white/5 px-4 py-2.5 rounded-2xl rounded-tl-none w-fit shadow-sm group-hover:bg-white/10 transition-colors">
+              <div 
+                onClick={() => isHost && handleHideMessage(msg.id)}
+                className={`text-sm text-white bg-white/5 border border-white/5 px-4 py-2.5 rounded-2xl rounded-tl-none w-fit shadow-sm group-hover:bg-white/10 transition-colors ${isHost ? "cursor-pointer hover:border-red-500/50" : ""}`}
+              >
                 {msg.text}
+                {isHost && (
+                  <span className="ml-2 text-[8px] text-red-500 opacity-0 group-hover:opacity-100 transition-opacity uppercase font-black">Hide</span>
+                )}
               </div>
             </motion.div>
           ))}

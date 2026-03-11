@@ -23,8 +23,10 @@ export function PinnedProduct({
   const [isExpanded, setIsExpanded] = useState(true);
   const [prevProductId, setPrevProductId] = useState<string | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState(() => {
-    if (product.variants && product.variants.length === 1) {
-      return product.variants[0].id;
+    if (product.variants && product.variants.length > 0) {
+      // Default to the first available variant if possible, otherwise just the first one
+      const firstAvailable = product.variants.find(v => v.availableForSale && v.inventoryQuantity > 0);
+      return firstAvailable ? firstAvailable.id : product.variants[0].id;
     }
     return "";
   });
@@ -48,8 +50,7 @@ export function PinnedProduct({
   const isSelectedSoldOut = selectedVariant ? (!selectedVariant.availableForSale || selectedVariant.inventoryQuantity === 0) : false;
   const isCompletelySoldOut = product.variants?.every(v => !v.availableForSale || v.inventoryQuantity === 0) || inventoryCount === 0;
 
-  const handleBuy = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handlePurchase = () => {
     if (!selectedVariantId || isSelectedSoldOut) return;
 
     // Send tracking event to host
@@ -58,8 +59,21 @@ export function PinnedProduct({
     );
     sendSales(payload, { reliable: true });
 
-    // Open checkout
-    window.open(`https://jayjaym.com/cart/${selectedVariantId}:1`, "_blank");
+    // Clean domain to prevent double https:// or trailing slashes
+    const rawDomain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || "jayjaym.com";
+    const cleanDomain = rawDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    
+    // Redirect to product page with variant selected instead of cart
+    const checkoutUrl = `https://${cleanDomain}/products/${product.handle}?variant=${selectedVariantId}`;
+
+    // Erstellt ein unsichtbares Element, das den Referrer unterdrückt
+    const link = document.createElement('a');
+    link.href = checkoutUrl;
+    link.rel = 'noreferrer'; // Dies ist der entscheidende Teil für Cloudflare
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const renderInventoryBadge = () => {
@@ -142,17 +156,13 @@ export function PinnedProduct({
             )}
 
             {isSelectedSoldOut ? (
-              <button
-                disabled
-                className="w-full bg-zinc-800 text-zinc-500 py-4 px-4 rounded-2xl text-base font-bold flex items-center justify-center gap-2 cursor-not-allowed"
-              >
+              <div className="w-full bg-zinc-800 text-zinc-500 py-4 px-4 rounded-2xl text-base font-bold flex items-center justify-center gap-2 cursor-not-allowed">
                 <ShoppingCart className="w-5 h-5" />
                 Sold Out
-              </button>
+              </div>
             ) : (
               <button
-                onClick={handleBuy}
-                disabled={hasVariants && !selectedVariantId}
+                onClick={handlePurchase}
                 className={`w-full py-4 px-4 rounded-2xl text-base font-bold transition-all shadow-lg flex items-center justify-center gap-2 ${
                   hasVariants && !selectedVariantId
                     ? "bg-zinc-800 text-zinc-400 cursor-not-allowed"

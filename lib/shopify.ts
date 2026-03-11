@@ -8,6 +8,7 @@ export interface ShopifyVariant {
 export interface ShopifyProduct {
   id: string;
   title: string;
+  handle: string;
   price: string;
   currency: string;
   imageUrl: string;
