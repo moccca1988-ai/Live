@@ -5,12 +5,12 @@ import { ShopifyProduct } from "@/lib/shopify";
 import { X, ShoppingCart } from "lucide-react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "motion/react";
+import { useDataChannel } from "@livekit/components-react";
 
 interface PinnedProductProps {
   product: ShopifyProduct;
   isHost: boolean;
   onUnpin: () => void;
-  onBuyClick: () => void;
   inventoryCount: number | null;
 }
 
@@ -18,21 +18,49 @@ export function PinnedProduct({
   product,
   isHost,
   onUnpin,
-  onBuyClick,
   inventoryCount,
 }: PinnedProductProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [prevProductId, setPrevProductId] = useState<string | null>(null);
+  const [selectedVariantId, setSelectedVariantId] = useState(() => {
+    if (product.variants && product.variants.length === 1) {
+      return product.variants[0].id;
+    }
+    return "";
+  });
+
+  if (product.id !== prevProductId) {
+    setIsExpanded(true);
+    setPrevProductId(product.id);
+  }
+
+  const { send: sendSales } = useDataChannel("sales-tracking");
 
   useEffect(() => {
-    setIsExpanded(true);
     const timer = setTimeout(() => {
       setIsExpanded(false);
-    }, 3000);
+    }, 6000); // Give viewers 6 seconds before minimizing
     return () => clearTimeout(timer);
-  }, [product.id, product.variantId]);
+  }, [product.id]);
 
   const hasVariants = product.variants && product.variants.length > 1;
-  const isCompletelySoldOut = inventoryCount === 0;
+  const selectedVariant = product.variants?.find(v => v.id === selectedVariantId);
+  const isSelectedSoldOut = selectedVariant ? (!selectedVariant.availableForSale || selectedVariant.inventoryQuantity === 0) : false;
+  const isCompletelySoldOut = product.variants?.every(v => !v.availableForSale || v.inventoryQuantity === 0) || inventoryCount === 0;
+
+  const handleBuy = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!selectedVariantId || isSelectedSoldOut) return;
+
+    // Send tracking event to host
+    const payload = new TextEncoder().encode(
+      JSON.stringify({ type: "TRACK_SALE", price: product.price })
+    );
+    sendSales(payload, { reliable: true });
+
+    // Open checkout
+    window.open(`https://jayjaym.com/cart/${selectedVariantId}:1`, "_blank");
+  };
 
   const renderInventoryBadge = () => {
     if (inventoryCount === null || inventoryCount >= 5) return null;
@@ -48,49 +76,95 @@ export function PinnedProduct({
       {isExpanded ? (
         <motion.div
           key="expanded"
-          initial={{ opacity: 0, scale: 0.8, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.8, y: -20 }}
+          initial={{ opacity: 0, y: "100%" }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: "100%" }}
           transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none"
+          className="absolute inset-x-0 bottom-0 z-50 p-4 pointer-events-none flex flex-col justify-end"
         >
-          <div className="bg-black/60 backdrop-blur-2xl border border-white/20 p-5 rounded-3xl shadow-2xl w-full max-w-[320px] pointer-events-auto flex flex-col items-center text-center relative">
+          <div className="bg-zinc-950/95 backdrop-blur-3xl border border-white/10 p-6 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)] w-full pointer-events-auto flex flex-col relative pb-8">
+            {/* Drawer Handle */}
+            <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-6" />
+            
             {renderInventoryBadge()}
             {isHost && (
               <button
                 onClick={onUnpin}
-                className="absolute top-4 right-4 bg-white/10 text-white rounded-full p-2 hover:bg-white/20 transition-colors"
+                className="absolute top-6 right-6 bg-white/10 text-white rounded-full p-2 hover:bg-white/20 transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             )}
-            <div className="relative w-40 h-40 rounded-2xl overflow-hidden mb-4 shadow-xl">
-              <Image
-                src={product.imageUrl}
-                alt={product.title}
-                fill
-                className="object-cover"
-                referrerPolicy="no-referrer"
-              />
+            
+            <div className="flex gap-4 items-start mb-6">
+              <div className="relative w-24 h-24 rounded-2xl overflow-hidden shrink-0 shadow-xl border border-white/5">
+                <Image
+                  src={product.imageUrl}
+                  alt={product.title}
+                  fill
+                  className="object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <div className="flex-1 pt-1">
+                <h3 className="text-white font-bold text-lg leading-tight mb-1 line-clamp-2">{product.title}</h3>
+                <p className="text-emerald-400 font-black text-xl">
+                  {product.price} {product.currency}
+                </p>
+              </div>
             </div>
-            <h3 className="text-white font-bold text-lg mb-1">{product.title}</h3>
-            <p className="text-emerald-400 font-black text-xl mb-4">
-              {product.price} {product.currency}
-            </p>
+
+            {!isHost && hasVariants && (
+              <div className="w-full mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-zinc-400 text-xs uppercase tracking-wider font-bold">Select Size</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {product.variants.map((variant) => {
+                    const isSoldOut = !variant.availableForSale || variant.inventoryQuantity === 0;
+                    const isSelected = selectedVariantId === variant.id;
+                    return (
+                      <button
+                        key={variant.id}
+                        onClick={() => setSelectedVariantId(variant.id)}
+                        disabled={isSoldOut}
+                        className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all border ${
+                          isSelected
+                            ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20 scale-[1.02]"
+                            : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                        } ${isSoldOut ? "opacity-30 cursor-not-allowed" : ""}`}
+                      >
+                        {variant.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {!isHost && (
-              <button
-                onClick={onBuyClick}
-                disabled={isCompletelySoldOut}
-                className={`w-full py-3 px-6 rounded-xl text-base font-bold transition-colors shadow-lg flex items-center justify-center gap-2 ${
-                  isCompletelySoldOut 
-                    ? "bg-zinc-700 text-zinc-400 cursor-not-allowed" 
-                    : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20"
-                }`}
-              >
-                <ShoppingCart className="w-5 h-5" />
-                {isCompletelySoldOut ? "Sold Out" : (hasVariants ? "Select Option" : "Buy Now")}
-              </button>
+              isSelectedSoldOut ? (
+                <button
+                  disabled
+                  className="w-full bg-zinc-800 text-zinc-500 py-4 px-4 rounded-2xl text-base font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+                >
+                  <ShoppingCart className="w-5 h-5" />
+                  Sold Out
+                </button>
+              ) : (
+                <button
+                  onClick={handleBuy}
+                  disabled={hasVariants && !selectedVariantId}
+                  className={`w-full py-4 px-4 rounded-2xl text-base font-bold transition-all shadow-lg flex items-center justify-center gap-2 ${
+                    hasVariants && !selectedVariantId
+                      ? "bg-zinc-800 text-zinc-400 cursor-not-allowed"
+                      : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] scale-[1.02]"
+                  }`}
+                >
+                  <ShoppingCart className="w-5 h-5" />
+                  {hasVariants && !selectedVariantId ? "Bitte Variante wählen" : "Jetzt verbindlich kaufen"}
+                </button>
+              )
             )}
           </div>
         </motion.div>
@@ -133,21 +207,26 @@ export function PinnedProduct({
                 {product.price} {product.currency}
               </p>
               {!isHost && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onBuyClick();
-                  }}
-                  disabled={isCompletelySoldOut}
-                  className={`mt-1.5 flex items-center justify-center gap-1.5 w-full py-1 px-2 rounded-lg text-[10px] font-bold shadow-lg ${
-                    isCompletelySoldOut
-                      ? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
-                      : "bg-emerald-500 text-white shadow-emerald-500/20"
-                  }`}
-                >
-                  <ShoppingCart className="w-3 h-3" />
-                  {isCompletelySoldOut ? "Sold Out" : (hasVariants ? "Options" : "Buy")}
-                </button>
+                isCompletelySoldOut ? (
+                  <button
+                    disabled
+                    className="mt-1.5 flex items-center justify-center gap-1.5 w-full bg-zinc-700 text-zinc-400 py-1 px-2 rounded-lg text-[10px] font-bold shadow-lg cursor-not-allowed"
+                  >
+                    <ShoppingCart className="w-3 h-3" />
+                    Sold Out
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsExpanded(true);
+                    }}
+                    className="mt-1.5 flex items-center justify-center gap-1.5 w-full bg-emerald-500 text-white py-1 px-2 rounded-lg text-[10px] font-bold shadow-lg shadow-emerald-500/20"
+                  >
+                    <ShoppingCart className="w-3 h-3" />
+                    Buy
+                  </button>
+                )
               )}
             </div>
           </div>

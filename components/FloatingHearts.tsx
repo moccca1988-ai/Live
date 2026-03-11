@@ -2,17 +2,18 @@
 
 import { motion, AnimatePresence } from "motion/react";
 import { Heart } from "lucide-react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useDataChannel } from "@livekit/components-react";
 
 export function FloatingHearts({ isHost }: { isHost: boolean }) {
-  const [hearts, setHearts] = useState<{ id: number; x: number }[]>([]);
+  const [hearts, setHearts] = useState<{ id: number; x: number; targetX: number }[]>([]);
+  const addHeartRef = useRef<(broadcast?: boolean) => void>(() => {});
 
   const { send } = useDataChannel("hearts", (msg) => {
     try {
       const data = JSON.parse(new TextDecoder().decode(msg.payload));
       if (data.type === "HEART") {
-        addHeart(false);
+        addHeartRef.current(false);
       }
     } catch (e) {
       // ignore
@@ -22,7 +23,8 @@ export function FloatingHearts({ isHost }: { isHost: boolean }) {
   const addHeart = useCallback((broadcast = true) => {
     const id = Date.now() + Math.random();
     const x = Math.random() * 40 - 20; // Random horizontal offset
-    setHearts((prev) => [...prev, { id, x }]);
+    const targetX = x + (Math.random() * 40 - 20);
+    setHearts((prev) => [...prev, { id, x, targetX }]);
 
     if (broadcast) {
       const payload = new TextEncoder().encode(JSON.stringify({ type: "HEART" }));
@@ -34,6 +36,10 @@ export function FloatingHearts({ isHost }: { isHost: boolean }) {
     }, 2000);
   }, [send]);
 
+  useEffect(() => {
+    addHeartRef.current = addHeart;
+  }, [addHeart]);
+
   return (
     <>
       <div className="absolute bottom-32 right-4 w-16 h-64 pointer-events-none z-40 flex justify-center">
@@ -42,7 +48,7 @@ export function FloatingHearts({ isHost }: { isHost: boolean }) {
             <motion.div
               key={h.id}
               initial={{ opacity: 1, y: 0, x: h.x, scale: 0.5 }}
-              animate={{ opacity: 0, y: -300, x: h.x + (Math.random() * 40 - 20), scale: 1.5 }}
+              animate={{ opacity: 0, y: -300, x: h.targetX, scale: 1.5 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 2, ease: "easeOut" }}
               className="absolute bottom-0"

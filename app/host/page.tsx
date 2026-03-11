@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { LiveRoom } from "@/components/LiveRoom";
-import { getLiveProducts, ShopifyProduct } from "@/lib/shopify";
+import { getLiveProducts } from "@/app/actions/shopify";
+import { ShopifyProduct } from "@/lib/shopify";
 
 export default function HostPage() {
   const [token, setToken] = useState<string>("");

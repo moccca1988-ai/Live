@@ -1,11 +1,18 @@
 "use server";
 
 export async function getProductInventory(productId: string) {
-  const domain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN;
+  const rawDomain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || "jayjaym.com";
+  // Strip protocol and trailing slash if present
+  const cleanDomain = rawDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const domain = cleanDomain === "jayjaym.com" ? "www.jayjaym.com" : cleanDomain;
   const storefrontAccessToken = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN;
 
-  if (!domain || !storefrontAccessToken) return null;
+  if (!domain || !storefrontAccessToken) {
+    console.warn("Shopify credentials missing for inventory. Domain:", domain);
+    return null;
+  }
 
+  const url = `https://${domain}/api/2024-01/graphql.json`;
   const query = `
     query getProduct($id: ID!) {
       product(id: $id) {
@@ -22,7 +29,7 @@ export async function getProductInventory(productId: string) {
   `;
 
   try {
-    const response = await fetch(`https://${domain}/api/2024-01/graphql.json`, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

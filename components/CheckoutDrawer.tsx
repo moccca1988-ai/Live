@@ -14,13 +14,16 @@ interface CheckoutDrawerProps {
 
 export function CheckoutDrawer({ product, isOpen, onClose }: CheckoutDrawerProps) {
   const [selectedVariantId, setSelectedVariantId] = useState("");
+  const [prevProductId, setPrevProductId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (product && !selectedVariantId) {
+  const currentId = product?.id ?? null;
+  if (currentId !== prevProductId) {
+    if (product) {
       const firstAvailable = product.variants?.find(v => v.availableForSale && v.inventoryQuantity > 0);
       setSelectedVariantId(firstAvailable ? firstAvailable.id : product.variantId);
     }
-  }, [product, selectedVariantId]);
+    setPrevProductId(currentId);
+  }
 
   if (!product) return null;
 
