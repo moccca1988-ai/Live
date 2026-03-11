@@ -76,25 +76,24 @@ export function PinnedProduct({
       {isExpanded ? (
         <motion.div
           key="expanded"
-          initial={{ opacity: 0, y: "100%" }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: "100%" }}
+          initial={{ y: "100%" }}
+          animate={{ y: 0 }}
+          exit={{ y: "100%" }}
           transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className="absolute inset-x-0 bottom-0 z-50 p-4 pointer-events-none flex flex-col justify-end"
+          className="fixed inset-x-0 bottom-0 z-[100] pointer-events-none flex flex-col justify-end"
         >
-          <div className="bg-zinc-950/95 backdrop-blur-3xl border border-white/10 p-6 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)] w-full pointer-events-auto flex flex-col relative pb-8">
+          <div className="bg-zinc-950/95 backdrop-blur-3xl border-t border-white/10 p-6 rounded-t-[32px] shadow-[0_-10px_40px_rgba(0,0,0,0.5)] w-full pointer-events-auto flex flex-col relative pb-10">
             {/* Drawer Handle */}
             <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-6" />
             
+            <button
+              onClick={() => setIsExpanded(false)}
+              className="absolute top-6 right-6 bg-white/10 text-white rounded-full p-2 hover:bg-white/20 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
             {renderInventoryBadge()}
-            {isHost && (
-              <button
-                onClick={onUnpin}
-                className="absolute top-6 right-6 bg-white/10 text-white rounded-full p-2 hover:bg-white/20 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
             
             <div className="flex gap-4 items-start mb-6">
               <div className="relative w-24 h-24 rounded-2xl overflow-hidden shrink-0 shadow-xl border border-white/5">
@@ -114,7 +113,7 @@ export function PinnedProduct({
               </div>
             </div>
 
-            {!isHost && hasVariants && (
+            {hasVariants && (
               <div className="w-full mb-6">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-zinc-400 text-xs uppercase tracking-wider font-bold">Select Size</p>
@@ -142,55 +141,44 @@ export function PinnedProduct({
               </div>
             )}
 
-            {!isHost && (
-              isSelectedSoldOut ? (
-                <button
-                  disabled
-                  className="w-full bg-zinc-800 text-zinc-500 py-4 px-4 rounded-2xl text-base font-bold flex items-center justify-center gap-2 cursor-not-allowed"
-                >
-                  <ShoppingCart className="w-5 h-5" />
-                  Sold Out
-                </button>
-              ) : (
-                <button
-                  onClick={handleBuy}
-                  disabled={hasVariants && !selectedVariantId}
-                  className={`w-full py-4 px-4 rounded-2xl text-base font-bold transition-all shadow-lg flex items-center justify-center gap-2 ${
-                    hasVariants && !selectedVariantId
-                      ? "bg-zinc-800 text-zinc-400 cursor-not-allowed"
-                      : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] scale-[1.02]"
-                  }`}
-                >
-                  <ShoppingCart className="w-5 h-5" />
-                  {hasVariants && !selectedVariantId ? "Bitte Variante wählen" : "Jetzt verbindlich kaufen"}
-                </button>
-              )
+            {isSelectedSoldOut ? (
+              <button
+                disabled
+                className="w-full bg-zinc-800 text-zinc-500 py-4 px-4 rounded-2xl text-base font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+              >
+                <ShoppingCart className="w-5 h-5" />
+                Sold Out
+              </button>
+            ) : (
+              <button
+                onClick={handleBuy}
+                disabled={hasVariants && !selectedVariantId}
+                className={`w-full py-4 px-4 rounded-2xl text-base font-bold transition-all shadow-lg flex items-center justify-center gap-2 ${
+                  hasVariants && !selectedVariantId
+                    ? "bg-zinc-800 text-zinc-400 cursor-not-allowed"
+                    : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] scale-[1.02]"
+                }`}
+              >
+                <ShoppingCart className="w-5 h-5" />
+                {hasVariants && !selectedVariantId ? "Bitte Variante wählen" : "Jetzt verbindlich kaufen"}
+              </button>
             )}
           </div>
         </motion.div>
       ) : (
         <motion.div
           key="minimized"
-          initial={{ opacity: 0, scale: 0.8, x: 50 }}
+          initial={{ opacity: 0, scale: 0.8, x: -20 }}
           animate={{ opacity: 1, scale: 1, x: 0 }}
+          exit={{ opacity: 0, scale: 0.8, x: -20 }}
           transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className={`absolute right-4 pointer-events-auto cursor-pointer ${isHost ? 'bottom-48' : 'bottom-24'}`}
-          onClick={() => !isHost && setIsExpanded(true)}
+          className="absolute bottom-4 left-4 pointer-events-auto cursor-pointer group"
+          onClick={() => setIsExpanded(true)}
         >
-          <div className="flex items-center gap-3 bg-black/60 backdrop-blur-xl border border-white/20 p-2 pr-4 rounded-2xl shadow-2xl max-w-[220px] hover:bg-black/70 transition-colors relative">
+          <div className="flex items-center gap-3 bg-black/60 backdrop-blur-xl border border-white/20 p-1.5 pr-4 rounded-2xl shadow-2xl hover:bg-black/70 transition-all hover:scale-105 active:scale-95 relative">
             {renderInventoryBadge()}
-            {isHost && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onUnpin();
-                }}
-                className="absolute -top-2 -right-2 bg-zinc-800 text-white rounded-full p-1 hover:bg-zinc-700 transition-colors shadow-lg border border-white/10 z-10"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            )}
-            <div className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0">
+            
+            <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 shadow-lg">
               <Image
                 src={product.imageUrl}
                 alt={product.title}
@@ -198,36 +186,20 @@ export function PinnedProduct({
                 className="object-cover"
                 referrerPolicy="no-referrer"
               />
+              <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors" />
             </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-white font-semibold text-xs truncate">
+            
+            <div className="flex flex-col">
+              <h3 className="text-white font-bold text-[11px] truncate max-w-[100px]">
                 {product.title}
               </h3>
-              <p className="text-emerald-400 font-bold text-sm mt-0.5">
+              <p className="text-emerald-400 font-black text-xs mt-0.5">
                 {product.price} {product.currency}
               </p>
-              {!isHost && (
-                isCompletelySoldOut ? (
-                  <button
-                    disabled
-                    className="mt-1.5 flex items-center justify-center gap-1.5 w-full bg-zinc-700 text-zinc-400 py-1 px-2 rounded-lg text-[10px] font-bold shadow-lg cursor-not-allowed"
-                  >
-                    <ShoppingCart className="w-3 h-3" />
-                    Sold Out
-                  </button>
-                ) : (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsExpanded(true);
-                    }}
-                    className="mt-1.5 flex items-center justify-center gap-1.5 w-full bg-emerald-500 text-white py-1 px-2 rounded-lg text-[10px] font-bold shadow-lg shadow-emerald-500/20"
-                  >
-                    <ShoppingCart className="w-3 h-3" />
-                    Buy
-                  </button>
-                )
-              )}
+            </div>
+
+            <div className="ml-2 bg-white/10 rounded-full p-1.5 group-hover:bg-white/20 transition-colors">
+              <ShoppingCart className="w-3 h-3 text-white" />
             </div>
           </div>
         </motion.div>

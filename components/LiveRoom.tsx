@@ -7,8 +7,9 @@ import { ProductList } from "./ProductList";
 import { ChatOverlay } from "./ChatOverlay";
 import { FloatingHearts } from "./FloatingHearts";
 import { getProductInventory } from "@/app/actions/inventory";
-import { Users, Heart, DollarSign, Video, TrendingUp } from "lucide-react";
+import { Users, Heart, DollarSign, Video, TrendingUp, ShoppingCart, X } from "lucide-react";
 import Image from "next/image";
+import { motion, AnimatePresence } from "motion/react";
 import {
   LiveKitRoom,
   VideoConference,
@@ -48,7 +49,7 @@ export function LiveRoom({ token, isHost, products }: LiveRoomProps) {
       token={token}
       serverUrl={serverUrl}
       connect={true}
-      className="relative flex h-full w-full max-w-md mx-auto bg-black overflow-hidden"
+      className="relative flex h-full w-full bg-black overflow-hidden"
     >
       <StreamContent isHost={isHost} products={products} />
       <RoomAudioRenderer />
@@ -67,6 +68,7 @@ function StreamContent({
   const [inventoryCount, setInventoryCount] = useState<number | null>(null);
   const [estimatedSales, setEstimatedSales] = useState<number>(0);
   const [prevPinnedProductId, setPrevPinnedProductId] = useState<string | null>(null);
+  const [isProductDrawerOpen, setIsProductDrawerOpen] = useState(false);
 
   const currentPinnedId = pinnedProduct?.id ?? null;
   if (currentPinnedId !== prevPinnedProductId) {
@@ -135,6 +137,7 @@ function StreamContent({
       JSON.stringify({ type: "PIN_PRODUCT", product }),
     );
     sendPin(payload, { reliable: true });
+    setIsProductDrawerOpen(false); // Close drawer on pin
   };
 
   const handleUnpinProduct = () => {
@@ -146,139 +149,208 @@ function StreamContent({
   };
 
   return (
-    <div className="relative flex flex-col h-[100dvh] w-full overflow-hidden">
-      {/* Video Background */}
-      <div className="absolute inset-0 z-0">
-        {hostTrack && hostTrack.publication ? (
-          <VideoTrack
-            trackRef={hostTrack as any}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full w-full bg-zinc-950 relative overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(52,211,153,0.15)_0%,transparent_60%)] animate-pulse" />
-            <div className="relative z-10 flex flex-col items-center">
-              <div className="w-20 h-20 rounded-full bg-zinc-900 border-2 border-emerald-500/50 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(52,211,153,0.3)]">
-                <div className="w-8 h-8 rounded-full bg-emerald-400 animate-ping" />
-              </div>
-              <h2 className="text-xl font-bold text-white mb-2">Stream starting soon</h2>
-              <p className="text-zinc-400 text-center text-sm max-w-[250px]">The host is getting ready. Grab a snack and hold tight!</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* UI Overlay */}
-      <div className="relative z-10 flex flex-col h-full justify-between pointer-events-none">
-        {/* Top Header */}
-        <div className="p-4 flex flex-col gap-3 bg-gradient-to-b from-black/80 to-transparent">
-          <div className="flex justify-between items-start">
-            <div className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider animate-pulse shadow-lg shadow-red-500/20">
-              Live
-            </div>
-            <div className="bg-black/40 backdrop-blur-md text-white text-xs px-3 py-1 rounded-full flex items-center gap-2 border border-white/10">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              {isHost ? "Host" : "Viewer"}
-            </div>
-          </div>
-
-          {/* Host Stats Overlay */}
-          {isHost && (
-            <div className="flex gap-2 pointer-events-auto">
-              <div className="bg-black/40 backdrop-blur-md rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 border border-white/10">
-                <Users className="w-3.5 h-3.5 text-blue-400" />
-                <span className="text-white text-xs font-bold">1.2k</span>
-              </div>
-              <div className="bg-black/40 backdrop-blur-md rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 border border-white/10">
-                <Heart className="w-3.5 h-3.5 text-pink-400" />
-                <span className="text-white text-xs font-bold">8.4k</span>
+    <div className="flex flex-col lg:flex-row h-screen w-full bg-black overflow-hidden">
+      {/* Video Section */}
+      <div className="relative flex-none lg:flex-1 bg-zinc-900 flex items-center justify-center overflow-hidden aspect-[9/16] lg:aspect-auto w-full lg:w-auto">
+        <div className="relative w-full h-full">
+          {hostTrack && hostTrack.publication ? (
+            <VideoTrack
+              trackRef={hostTrack as any}
+              className="h-full w-full object-cover lg:object-contain"
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full w-full bg-zinc-950 relative overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(52,211,153,0.15)_0%,transparent_60%)] animate-pulse" />
+              <div className="relative z-10 flex flex-col items-center">
+                <div className="w-20 h-20 rounded-full bg-zinc-900 border-2 border-emerald-500/50 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(52,211,153,0.3)]">
+                  <div className="w-8 h-8 rounded-full bg-emerald-400 animate-ping" />
+                </div>
+                <h2 className="text-xl font-bold text-white mb-2">Stream starting soon</h2>
+                <p className="text-zinc-400 text-center text-sm max-w-[250px]">The host is getting ready. Grab a snack and hold tight!</p>
               </div>
             </div>
           )}
-        </div>
 
-        {/* Host Live Analytics Banner & Products */}
-        {isHost && (
-          <div className="absolute top-20 left-4 right-4 bottom-72 pointer-events-auto flex flex-col gap-4 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-            <div className="bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 p-4 rounded-2xl shadow-2xl flex flex-col gap-1 shrink-0">
-              <div className="flex items-center gap-2 text-zinc-400 mb-1">
-                <TrendingUp className="w-4 h-4 text-[#39FF14]" />
-                <h3 className="text-[10px] font-bold uppercase tracking-widest">Live Analytics</h3>
+          {/* Video Overlays (Badges, Stats) */}
+          <div className="absolute top-4 left-4 right-4 flex justify-between items-start pointer-events-none z-20">
+            <div className="flex flex-col gap-2">
+              <div className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest animate-pulse shadow-lg flex items-center gap-1 w-fit">
+                <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                Live
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-black text-[#39FF14] drop-shadow-[0_0_15px_rgba(57,255,20,0.4)] tracking-tighter">
-                  ${estimatedSales.toFixed(2)}
-                </span>
-                <span className="text-zinc-500 text-xs font-medium">Est. Revenue</span>
+              <div className="bg-black/60 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/10 shadow-xl">
+                <Users className="w-3 h-3 text-blue-400" />
+                <span className="font-bold">1.2k</span>
               </div>
             </div>
+            
+            <div className="bg-black/60 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg flex items-center gap-1.5 border border-white/10 shadow-xl">
+              <Heart className="w-3 h-3 text-pink-400" />
+              <span className="font-bold">8.4k</span>
+            </div>
+          </div>
 
-            {/* Products Grid */}
-            {products.length === 0 ? (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center shrink-0">
-                <p className="text-red-400 text-sm font-medium">No products loaded.</p>
-                <p className="text-zinc-400 text-xs mt-1">Check if SHOPIFY_STOREFRONT_ACCESS_TOKEN is set correctly.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 pb-4 shrink-0">
-                {products.map((product) => {
-                  const isPinned = product.id === pinnedProduct?.id;
-                  const totalInventory = product.variants?.reduce((sum, v) => sum + (v.inventoryQuantity || 0), 0) || 0;
-                  const isSoldOut = totalInventory === 0;
+          {/* Floating Hearts - Immersive layer */}
+          <div className="absolute inset-0 pointer-events-none z-10">
+            <FloatingHearts isHost={isHost} />
+          </div>
 
-                  return (
-                    <div key={product.id} className={`bg-zinc-900/90 backdrop-blur-md rounded-xl border ${isPinned ? 'border-emerald-500 shadow-lg shadow-emerald-500/20' : 'border-white/10'} p-3 flex flex-col`}>
-                      <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-zinc-800 mb-3">
-                        <Image src={product.imageUrl} alt={product.title} fill className="object-cover" referrerPolicy="no-referrer" />
-                        {isSoldOut && (
-                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                            <span className="text-white text-[10px] font-bold uppercase tracking-wider bg-red-500/80 px-2 py-1 rounded">Sold Out</span>
-                          </div>
-                        )}
-                      </div>
-                      <h4 className="text-white text-sm font-medium line-clamp-2 mb-1">{product.title}</h4>
-                      <p className="text-emerald-400 text-xs font-bold mb-3">{product.price} {product.currency}</p>
-                      
-                      <button
-                        onClick={() => isPinned ? handleUnpinProduct() : handlePinProduct(product)}
-                        className={`mt-auto w-full py-2 rounded-lg text-xs font-bold transition-colors ${
-                          isPinned
-                            ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                            : "bg-white/10 text-white hover:bg-white/20"
-                        }`}
-                      >
-                        {isPinned ? "Unpin from Stream" : "Pin to Stream"}
-                      </button>
-                    </div>
-                  );
-                })}
+          {/* Pinned Product Overlay (Viewer/Host) */}
+          {pinnedProduct && (
+            <div className="absolute inset-0 z-30 pointer-events-none">
+              <PinnedProduct
+                product={pinnedProduct}
+                isHost={isHost}
+                onUnpin={handleUnpinProduct}
+                inventoryCount={inventoryCount}
+              />
+            </div>
+          )}
+
+          {/* Host Product Control Trigger (Mobile Overlay) */}
+          {isHost && (
+            <div className="absolute bottom-4 right-4 z-40 lg:hidden">
+              <button
+                onClick={() => setIsProductDrawerOpen(true)}
+                className="w-14 h-14 bg-white text-black rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+              >
+                <ShoppingCart className="w-6 h-6" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Sidebar (Desktop) / Bottom Area (Mobile) */}
+      <div className="flex-1 lg:w-96 lg:flex-none bg-zinc-950 border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col z-40 overflow-hidden">
+        {/* Host Analytics (Desktop Only or Top of Mobile Area) */}
+        {isHost && (
+          <div className="p-4 border-b border-white/5 bg-zinc-900/50 shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-zinc-400">
+                <TrendingUp className="w-4 h-4 text-emerald-400" />
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em]">Revenue</h3>
               </div>
-            )}
+              <span className="text-emerald-400 text-xl font-black tracking-tighter">
+                ${estimatedSales.toFixed(2)}
+              </span>
+            </div>
           </div>
         )}
 
-        {/* Floating Hearts Overlay */}
-        <FloatingHearts isHost={isHost} />
-
-        {/* Middle Section: Pinned Product */}
-        {pinnedProduct && (
-          <div className="absolute inset-0 z-50 pointer-events-none">
-            <PinnedProduct
-              product={pinnedProduct}
-              isHost={isHost}
-              onUnpin={handleUnpinProduct}
-              inventoryCount={inventoryCount}
-            />
-          </div>
-        )}
-
-        {/* Bottom Section: Chat & Host Controls */}
-        <div className="bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-12 pb-6 px-4 pointer-events-auto flex flex-col justify-end">
-          <div className="h-48 flex flex-col justify-end mb-4">
+        {/* Chat Area - Scrollable */}
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+          <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
             <ChatOverlay isHost={isHost} />
           </div>
         </div>
+
+        {/* Desktop Host Controls */}
+        {isHost && (
+          <div className="hidden lg:block p-6 bg-zinc-900/80 border-t border-white/10 shrink-0">
+            <button
+              onClick={() => setIsProductDrawerOpen(true)}
+              className="w-full py-4 bg-white text-black rounded-2xl font-black text-sm hover:bg-zinc-200 transition-all flex items-center justify-center gap-3 shadow-xl active:scale-[0.98]"
+            >
+              <ShoppingCart className="w-5 h-5" />
+              MANAGE PRODUCTS
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Host Product Drawer (Bottom Sheet) */}
+      <AnimatePresence>
+        {isHost && isProductDrawerOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsProductDrawerOpen(false)}
+              className="fixed inset-0 bg-black/80 backdrop-blur-md z-[110]"
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed inset-x-0 bottom-0 bg-zinc-950 border-t border-white/10 rounded-t-[40px] z-[120] max-h-[85vh] flex flex-col shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
+            >
+              <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto my-5 shrink-0" />
+              
+              <div className="px-8 pb-6 flex items-center justify-between shrink-0">
+                <div>
+                  <h2 className="text-white font-black text-2xl tracking-tight">Products</h2>
+                  <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mt-1">Select to pin to stream</p>
+                </div>
+                <button
+                  onClick={() => setIsProductDrawerOpen(false)}
+                  className="p-3 bg-white/5 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto px-8 pb-12 custom-scrollbar">
+                {products.length === 0 ? (
+                  <div className="py-20 text-center">
+                    <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <ShoppingCart className="w-8 h-8 text-zinc-600" />
+                    </div>
+                    <p className="text-zinc-500 font-bold">No products available.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4">
+                    {products.map((product) => {
+                      const isPinned = product.id === pinnedProduct?.id;
+                      return (
+                        <div key={product.id} className={`flex items-center gap-5 p-5 rounded-[24px] border transition-all ${
+                          isPinned 
+                            ? "bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]" 
+                            : "bg-white/5 border-white/5 hover:bg-white/10"
+                        }`}>
+                          <div className="relative w-24 h-24 rounded-2xl overflow-hidden shrink-0 shadow-2xl border border-white/5">
+                            <Image src={product.imageUrl} alt={product.title} fill className="object-cover" />
+                            {isPinned && (
+                              <div className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center">
+                                <div className="bg-emerald-500 text-white text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">Pinned</div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-white font-bold text-base truncate mb-1">{product.title}</h4>
+                            <p className="text-emerald-400 font-black text-lg">{product.price} {product.currency}</p>
+                          </div>
+                          
+                          <div className="flex flex-col gap-2">
+                            {isPinned ? (
+                              <button
+                                onClick={handleUnpinProduct}
+                                className="px-6 py-3 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+                              >
+                                Unpin
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handlePinProduct(product)}
+                                className="px-6 py-3 bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
+                              >
+                                Pin
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
