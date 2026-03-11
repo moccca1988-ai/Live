@@ -17,7 +17,8 @@ export function CheckoutDrawer({ product, isOpen, onClose }: CheckoutDrawerProps
 
   useEffect(() => {
     if (product && !selectedVariantId) {
-      setSelectedVariantId(product.variantId);
+      const firstAvailable = product.variants?.find(v => v.availableForSale && v.inventoryQuantity > 0);
+      setSelectedVariantId(firstAvailable ? firstAvailable.id : product.variantId);
     }
   }, [product, selectedVariantId]);
 
@@ -26,6 +27,9 @@ export function CheckoutDrawer({ product, isOpen, onClose }: CheckoutDrawerProps
   const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || "jayjaym.com";
   const checkoutUrl = `https://${shopDomain}/cart/${selectedVariantId}:1`;
   const hasVariants = product.variants && product.variants.length > 1;
+
+  const selectedVariant = product.variants?.find(v => v.id === selectedVariantId);
+  const isSelectedSoldOut = selectedVariant ? (!selectedVariant.availableForSale || selectedVariant.inventoryQuantity === 0) : false;
 
   return (
     <AnimatePresence>
@@ -70,25 +74,43 @@ export function CheckoutDrawer({ product, isOpen, onClose }: CheckoutDrawerProps
                   onChange={(e) => setSelectedVariantId(e.target.value)}
                   className="w-full bg-black/50 border border-white/20 text-white text-base rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 appearance-none"
                 >
-                  {product.variants.map((variant) => (
-                    <option key={variant.id} value={variant.id} className="text-black">
-                      {variant.title}
-                    </option>
-                  ))}
+                  {product.variants.map((variant) => {
+                    const isSoldOut = !variant.availableForSale || variant.inventoryQuantity === 0;
+                    return (
+                      <option 
+                        key={variant.id} 
+                        value={variant.id} 
+                        className="text-black"
+                        disabled={isSoldOut}
+                      >
+                        {variant.title} {isSoldOut ? "(Sold Out)" : ""}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             )}
 
-            <a
-              href={checkoutUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onClose}
-              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 px-6 rounded-xl text-lg font-bold transition-colors shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
-            >
-              <ShoppingCart className="w-5 h-5" />
-              Proceed to Checkout
-            </a>
+            {isSelectedSoldOut ? (
+              <button
+                disabled
+                className="w-full bg-zinc-700 text-zinc-400 py-4 px-6 rounded-xl text-lg font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+              >
+                <ShoppingCart className="w-5 h-5" />
+                Sold Out
+              </button>
+            ) : (
+              <a
+                href={checkoutUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={onClose}
+                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 px-6 rounded-xl text-lg font-bold transition-colors shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+              >
+                <ShoppingCart className="w-5 h-5" />
+                Proceed to Checkout
+              </a>
+            )}
           </motion.div>
         </>
       )}

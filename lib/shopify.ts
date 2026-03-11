@@ -1,6 +1,8 @@
 export interface ShopifyVariant {
   id: string;
   title: string;
+  inventoryQuantity: number;
+  availableForSale: boolean;
 }
 
 export interface ShopifyProduct {
@@ -49,6 +51,8 @@ export async function getLiveProducts(): Promise<ShopifyProduct[]> {
                 node {
                   id
                   title
+                  availableForSale
+                  quantityAvailable
                 }
               }
             }
@@ -73,6 +77,8 @@ export async function getLiveProducts(): Promise<ShopifyProduct[]> {
       const variants = edge.node.variants.edges.map((v: any) => ({
         id: v.node.id.split("/").pop(),
         title: v.node.title,
+        inventoryQuantity: v.node.quantityAvailable || 0,
+        availableForSale: v.node.availableForSale,
       }));
       
       return {

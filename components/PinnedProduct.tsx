@@ -32,12 +32,13 @@ export function PinnedProduct({
   }, [product.id, product.variantId]);
 
   const hasVariants = product.variants && product.variants.length > 1;
+  const isCompletelySoldOut = inventoryCount === 0;
 
   const renderInventoryBadge = () => {
     if (inventoryCount === null || inventoryCount >= 5) return null;
     return (
       <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg whitespace-nowrap animate-pulse border border-red-400 z-10">
-        {inventoryCount === 0 ? "Sold Out!" : `Only ${inventoryCount} left!`}
+        {isCompletelySoldOut ? "Sold Out!" : `Only ${inventoryCount} left!`}
       </div>
     );
   };
@@ -80,10 +81,15 @@ export function PinnedProduct({
             {!isHost && (
               <button
                 onClick={onBuyClick}
-                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-3 px-6 rounded-xl text-base font-bold transition-colors shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                disabled={isCompletelySoldOut}
+                className={`w-full py-3 px-6 rounded-xl text-base font-bold transition-colors shadow-lg flex items-center justify-center gap-2 ${
+                  isCompletelySoldOut 
+                    ? "bg-zinc-700 text-zinc-400 cursor-not-allowed" 
+                    : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20"
+                }`}
               >
                 <ShoppingCart className="w-5 h-5" />
-                {hasVariants ? "Select Option" : "Buy Now"}
+                {isCompletelySoldOut ? "Sold Out" : (hasVariants ? "Select Option" : "Buy Now")}
               </button>
             )}
           </div>
@@ -132,10 +138,15 @@ export function PinnedProduct({
                     e.stopPropagation();
                     onBuyClick();
                   }}
-                  className="mt-1.5 flex items-center justify-center gap-1.5 w-full bg-emerald-500 text-white py-1 px-2 rounded-lg text-[10px] font-bold shadow-lg shadow-emerald-500/20"
+                  disabled={isCompletelySoldOut}
+                  className={`mt-1.5 flex items-center justify-center gap-1.5 w-full py-1 px-2 rounded-lg text-[10px] font-bold shadow-lg ${
+                    isCompletelySoldOut
+                      ? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
+                      : "bg-emerald-500 text-white shadow-emerald-500/20"
+                  }`}
                 >
                   <ShoppingCart className="w-3 h-3" />
-                  {hasVariants ? "Options" : "Buy"}
+                  {isCompletelySoldOut ? "Sold Out" : (hasVariants ? "Options" : "Buy")}
                 </button>
               )}
             </div>
