@@ -15,7 +15,7 @@ export interface ShopifyProduct {
   handle: string;
   price: string;
   currency: string;
-  imageUrl: string;
+  imageUrl?: string;
   variantId: string;
   variants: ShopifyVariant[];
 }
@@ -30,7 +30,9 @@ export async function shopifyFetch<T>(
   query: string,
   variables?: Record<string, unknown>
 ): Promise<T> {
-  // Nur noch envEndpoint - KEIN jayjaym.com Fallback (CERT_HAS_EXPIRED!)
+  // Build-Logging: Zeigt ob die Env-Variable im Vercel-Build ankommt
+  console.log("Baue Shopify-Endpunkt für Domain:", process.env.SHOPIFY_STORE_DOMAIN);
+
   const rawDomain = process.env.SHOPIFY_STORE_DOMAIN;
 
   if (!rawDomain) {
@@ -45,10 +47,14 @@ export async function shopifyFetch<T>(
 
   const maxRetries = 2;
   const retryDelayMs = 500;
+  const timeoutMs = 5000;
 
   async function attempt(tryIndex: number): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
-      return await fetch(endpoint, {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -57,9 +63,15 @@ export async function shopifyFetch<T>(
           'User-Agent': 'Vercel-Server-Fetch',
         },
         body: JSON.stringify({ query, variables }),
+        signal: controller.signal,
       });
-    } catch (error: any) {
-      console.error('DEBUG FETCH:', error?.message, error?.stack);
+      clearTimeout(timeoutId);
+      return res;
+    } catch (error: unknown) {
+      clearTimeout(timeoutId);
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      console.error('DEBUG FETCH:', message, stack);
       console.error('Shopify Fetch fehlgeschlagen bei:', endpoint);
 
       if (tryIndex < maxRetries) {
