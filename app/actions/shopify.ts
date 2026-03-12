@@ -1,4 +1,5 @@
-"use server";
+// KEIN 'use server' hier! Diese Datei wird von API-Route-Handlern importiert.
+// 'use server' wuerde einen Build-Fehler verursachen (Server Actions != Route Handlers).
 export interface ShopifyVariant {
   id: string;
   title: string;
@@ -33,11 +34,9 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
       console.error(errorMsg);
       return { products: [], error: errorMsg, debug: `Domain: undefined, Token-Laenge: ${storefrontAccessToken?.length ?? 0}` };
     }
-    // Strip protocol and trailing slash
     let domain = rawDomain
       .replace(/^https?:\/\//, '')
       .replace(/\/$/, '');
-    // Debug info - always log for diagnosis
     const tokenLen = storefrontAccessToken?.length ?? 0;
     console.log(`[Shopify] Domain: ${domain}, Token-Laenge: ${tokenLen}`);
     if (!domain.includes('.myshopify.com')) {
@@ -54,9 +53,7 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
       console.error(errorMsg);
       return { products: [], error: errorMsg, debug: `Domain: ${domain}, Token-Laenge: 0` };
     }
-    // API version 2024-01 (stable for Storefront queries)
     const url = `https://${domain}/api/2024-01/graphql.json`;
-    // Combined query: shop name for diagnosis + products
     const query = `
       query {
         shop {
@@ -101,7 +98,6 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // EXACT header name - case sensitive for some Shopify API versions
         'X-Shopify-Storefront-Access-Token': storefrontAccessToken,
         'User-Agent': 'Vercel-Server-Fetch',
       },
@@ -115,7 +111,6 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
       return { products: [], error: errorMsg, debug: `Domain: ${domain}, Token-Laenge: ${tokenLen}` };
     }
     const json = await response.json();
-    // Log shop name for diagnosis
     const shopName = json?.data?.shop?.name;
     console.log(`[Shopify] Shop-Name: ${shopName ?? 'UNBEKANNT'}, GraphQL-Fehler: ${json.errors ? JSON.stringify(json.errors) : 'keine'}`);
     if (json.errors) {
@@ -123,7 +118,6 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
       console.error('Shopify Fetch fehlgeschlagen bei:', url);
       return { products: [], error: errorMsg, debug: `Domain: ${domain}, Token-Laenge: ${tokenLen}, Shop: ${shopName ?? 'n/a'}` };
     }
-    // Support BOTH formats: edges/node (standard) AND nodes (newer)
     const productEdges = json.data?.products?.edges;
     const productNodes = json.data?.products?.nodes;
     const rawProducts = productEdges
@@ -136,7 +130,6 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
       return { products: [], error: errorMsg, debug: debugMsg };
     }
     const products: ShopifyProduct[] = rawProducts.map((node: any) => {
-      // Support both edges/node and nodes format for variants/images too
       const variantEdges = node.variants?.edges ?? [];
       const variants: ShopifyVariant[] = (
         variantEdges.length > 0
