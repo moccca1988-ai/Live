@@ -1,3 +1,7 @@
+// lib/shopify.ts - Zentrale Typen und Fetch-Hilfsfunktion
+// HINWEIS: Die eigentliche Produkt-Logik liegt in app/actions/shopify.ts (Server Action)
+// Diese Datei stellt nur die Interfaces und eine generische Fetch-Funktion bereit.
+
 export interface ShopifyVariant {
   id: string;
   title: string;
@@ -15,19 +19,31 @@ export interface ShopifyProduct {
   variantId: string;
   variants: ShopifyVariant[];
 }
-async function shopifyFetch<T>(
+
+/**
+ * Generische Shopify Storefront API Fetch-Funktion.
+ * WICHTIG: SHOPIFY_STORE_DOMAIN MUSS eine .myshopify.com Domain sein.
+ * Die custom Domain (z.B. jayjaym.com) hat ein abgelaufenes TLS-Zertifikat
+ * und verursacht CERT_HAS_EXPIRED auf Vercel-Servern.
+ */
+export async function shopifyFetch<T>(
   query: string,
   variables?: Record<string, unknown>
 ): Promise<T> {
-  // DNS-Sicherheit: einmal feste URL als Fallback/Test
-  const fallbackEndpoint = 'https://jayjaym.com/api/2024-01/graphql.json';
-  const envEndpoint =
-    process.env.SHOPIFY_STORE_DOMAIN &&
-    `https://${process.env.SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`;
+  // Nur noch envEndpoint - KEIN jayjaym.com Fallback (CERT_HAS_EXPIRED!)
+  const rawDomain = process.env.SHOPIFY_STORE_DOMAIN;
 
-  const endpoint = envEndpoint || fallbackEndpoint;
+  if (!rawDomain) {
+    throw new Error('SHOPIFY_STORE_DOMAIN ist nicht gesetzt!');
+  }
 
-  const maxRetries = 2; // zusätzlich zu initialem Versuch = insgesamt 3
+  const domain = rawDomain
+    .replace(/^https?:\/\//, '')
+    .replace(/\/$/, '');
+
+  const endpoint = `https://${domain}/api/2024-01/graphql.json`;
+
+  const maxRetries = 2;
   const retryDelayMs = 500;
 
   async function attempt(tryIndex: number): Promise<Response> {
@@ -43,15 +59,9 @@ async function shopifyFetch<T>(
         body: JSON.stringify({ query, variables }),
       });
     } catch (error: any) {
-      // Detailliertes Error-Objekt
-      console.error(
-        'DEBUG FETCH:',
-        error?.message,
-        error?.stack
-      );
+      console.error('DEBUG FETCH:', error?.message, error?.stack);
       console.error('Shopify Fetch fehlgeschlagen bei:', endpoint);
 
-      // Retry, falls noch Versuche übrig
       if (tryIndex < maxRetries) {
         await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
         return attempt(tryIndex + 1);
