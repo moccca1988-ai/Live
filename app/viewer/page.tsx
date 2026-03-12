@@ -2,19 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { LiveRoom } from "@/components/LiveRoom";
-import { getLiveProducts } from "@/app/actions/shopify";
 import { ShopifyProduct } from "@/lib/shopify";
 
 export default function ViewerPage() {
-  const [token, setToken] = useState<string>("");
-  const [username, setUsername] = useState<string>("");
+  const [token, setToken] = useState("");
+  const [username, setUsername] = useState("");
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    // Fetch products
-    getLiveProducts()
-      .then((res) => setProducts(res.products || []))
+    // Fetch products via API-Route statt direkt als Server Action
+    // (verhindert "Failed to find Server Action" 404 bei Re-Deployments)
+    fetch('/api/shopify/products')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) {
+          console.error('Shopify Fehler:', data.error);
+        }
+        setProducts(data.products || []);
+      })
       .catch(console.error);
 
     // Fetch LiveKit token
