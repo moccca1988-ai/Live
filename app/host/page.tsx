@@ -2,16 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { LiveRoom } from "@/components/LiveRoom";
-import { getLiveProducts } from "@/app/actions/shopify";
 import { ShopifyProduct } from "@/lib/shopify";
 
 export default function HostPage() {
-  const [token, setToken] = useState<string>("");
+  const [token, setToken] = useState("");
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
-  const [error, setError] = useState<string>("");
-  const [shopifyError, setShopifyError] = useState<string>("");
-  const [loadingProducts, setLoadingProducts] = useState<boolean>(true);
-  const [retryVisible, setRetryVisible] = useState<boolean>(false);
+  const [error, setError] = useState("");
+  const [shopifyError, setShopifyError] = useState("");
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [retryVisible, setRetryVisible] = useState(false);
 
   const fetchProducts = useCallback(() => {
     setLoadingProducts(true);
@@ -23,7 +22,10 @@ export default function HostPage() {
       setRetryVisible(true);
     }, 10000);
 
-    getLiveProducts()
+    // Produkte via API-Route statt direkt als Server Action
+    // (verhindert "Failed to find Server Action" 404 bei Re-Deployments)
+    fetch('/api/shopify/products')
+      .then((res) => res.json())
       .then((res) => {
         clearTimeout(timeout);
         setLoadingProducts(false);
@@ -86,15 +88,15 @@ export default function HostPage() {
   }
 
   return (
-    <main className="flex h-screen w-full bg-zinc-950 text-white overflow-hidden relative">
+    <div className="flex flex-col h-screen bg-zinc-950 text-white">
       {shopifyError && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[200] bg-black/80 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-2xl border border-red-500/30 max-w-sm text-center">
-          <div className="text-red-400 mb-1">Shopify Fehler:</div>
-          <div className="text-zinc-300">{shopifyError}</div>
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 m-4">
+          <p className="text-red-400 font-bold">Shopify Fehler:</p>
+          <p className="text-zinc-300 text-sm">{shopifyError}</p>
           {retryVisible && (
             <button
               onClick={fetchProducts}
-              className="mt-2 px-3 py-1 bg-red-600 hover:bg-red-500 rounded text-white text-xs font-bold transition-colors"
+              className="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
             >
               Erneut versuchen
             </button>
@@ -102,15 +104,12 @@ export default function HostPage() {
         </div>
       )}
       {loadingProducts && !shopifyError && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[200] bg-black/60 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-2xl border border-white/10 flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-            Produkte werden geladen...
-          </div>
+        <div className="bg-zinc-800/50 rounded-xl p-4 m-4 text-center">
+          <p className="text-zinc-300 animate-pulse">Produkte werden geladen...</p>
           {retryVisible && (
             <button
               onClick={fetchProducts}
-              className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-white text-xs font-bold transition-colors"
+              className="mt-2 px-4 py-2 bg-zinc-600 text-white rounded hover:bg-zinc-500"
             >
               Erneut versuchen
             </button>
@@ -118,6 +117,6 @@ export default function HostPage() {
         </div>
       )}
       <LiveRoom token={token} isHost={true} products={products} />
-    </main>
+    </div>
   );
 }
