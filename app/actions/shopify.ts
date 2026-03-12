@@ -1,12 +1,10 @@
 "use server";
-
 export interface ShopifyVariant {
   id: string;
   title: string;
   inventoryQuantity: number;
   availableForSale: boolean;
 }
-
 export interface ShopifyProduct {
   id: string;
   title: string;
@@ -17,56 +15,47 @@ export interface ShopifyProduct {
   variantId: string;
   variants: ShopifyVariant[];
 }
-
 export type GetLiveProductsResult = {
   products: ShopifyProduct[];
   error?: string;
 };
-
 export async function getLiveProducts(): Promise<GetLiveProductsResult> {
   try {
-    // Domain MUSS .myshopify.com sein, NICHT custom domain (jayjaym.com hat abgelaufenes TLS-Zertifikat)
+    // Priority: SHOPIFY_MYSHOPIFY_DOMAIN > SHOPIFY_STORE_DOMAIN > NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN
     const rawDomain =
+      process.env.SHOPIFY_MYSHOPIFY_DOMAIN ||
       process.env.SHOPIFY_STORE_DOMAIN ||
       process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN;
-
     if (!rawDomain) {
       const errorMsg = "SHOPIFY_STORE_DOMAIN ist nicht gesetzt!";
       console.error(errorMsg);
       return { products: [], error: errorMsg };
     }
-
     // Strip protocol and trailing slash
     let domain = rawDomain
       .replace(/^https?:\/\//, '')
       .replace(/\/$/, '');
-
-    // KRITISCH: Falls custom domain (z.B. jayjaym.com) gesetzt ist,
-    // erzwinge myshopify.com Domain um CERT_HAS_EXPIRED zu verhindern.
-    // Vercel-Server koennen jayjaym.com nicht erreichen (abgelaufenes TLS-Zertifikat).
+    // If custom domain (not .myshopify.com), warn but don't hard-fail
+    // The Storefront API requires .myshopify.com - log clear error
     if (!domain.includes('.myshopify.com')) {
       console.error(
-        '[Shopify] WARNUNG: SHOPIFY_STORE_DOMAIN ist keine .myshopify.com Domain:',
+        '[Shopify] KRITISCH: Domain ist keine .myshopify.com Domain:',
         domain,
-        '- Shopify Storefront API ist nur ueber .myshopify.com erreichbar!'
+        '- Setze SHOPIFY_MYSHOPIFY_DOMAIN=<shopname>.myshopify.com in Vercel Environment Variables!'
       );
       return {
         products: [],
-        error: `Shopify Domain-Fehler: "${domain}" ist keine gueltige myshopify.com Domain. Bitte SHOPIFY_STORE_DOMAIN auf "<shopname>.myshopify.com" setzen.`,
+        error: `Shopify Domain-Fehler: "${domain}" ist keine .myshopify.com Domain. Bitte setze SHOPIFY_MYSHOPIFY_DOMAIN=<shopname>.myshopify.com in den Vercel Environment Variables.`,
       };
     }
-
-    // Nur noch SHOPIFY_ACCESS_TOKEN (gemaess Prompt-Vorgabe)
+    // Only SHOPIFY_ACCESS_TOKEN (as per requirement)
     const storefrontAccessToken = process.env.SHOPIFY_ACCESS_TOKEN;
-
     if (!storefrontAccessToken) {
       const errorMsg = "SHOPIFY_ACCESS_TOKEN ist nicht gesetzt!";
       console.error(errorMsg);
       return { products: [], error: errorMsg };
     }
-
     const url = `https://${domain}/api/2024-01/graphql.json`;
-
     const query = `
       query {
         products(first: 20) {
@@ -104,7 +93,6 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
         }
       }
     `;
-
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -115,28 +103,23 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
       body: JSON.stringify({ query }),
       cache: 'no-store',
     });
-
     if (!response.ok) {
       const body = await response.text();
       const errorMsg = `Shopify API ${response.status} ${response.statusText}: ${body}`;
       console.error('Shopify Fetch fehlgeschlagen bei:', url);
       return { products: [], error: errorMsg };
     }
-
     const json = await response.json();
-
     if (json.errors) {
       const errorMsg = `Shopify GraphQL Fehler: ${JSON.stringify(json.errors)}`;
       console.error('Shopify Fetch fehlgeschlagen bei:', url);
       return { products: [], error: errorMsg };
     }
-
     if (!json.data?.products?.edges) {
       const errorMsg = `Shopify leere Antwort: ${JSON.stringify(json)}`;
       console.error(errorMsg);
       return { products: [], error: errorMsg };
     }
-
     const products: ShopifyProduct[] = json.data.products.edges.map((edge: any) => {
       const variants: ShopifyVariant[] = edge.node.variants.edges.map((v: any) => ({
         id: v.node.id.split("/").pop(),
@@ -155,14 +138,12 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
         variants,
       };
     });
-
     if (products.length === 0) {
       const errorMsg =
         "Shopify liefert 0 Produkte. Checke Kanal-Berechtigung im Shopify Admin unter Einstellungen > Apps > Storefront API.";
       console.error(errorMsg);
       return { products: [], error: errorMsg };
     }
-
     return { products };
   } catch (error: any) {
     console.error('Shopify Fetch fehlgeschlagen bei:', error?.message, error?.stack);
