@@ -25,11 +25,25 @@ export type GetLiveProductsResult = {
 
 export async function getLiveProducts(): Promise<GetLiveProductsResult> {
   try {
-    const rawDomain = process.env.SHOPIFY_STORE_DOMAIN || process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || "jayjaym.com";
+    const rawDomain =
+      process.env.SHOPIFY_STORE_DOMAIN ||
+      process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN ||
+      "jayjaym.com";
+
     // Strip protocol and trailing slash if present
-    const cleanDomain = rawDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    const domain = cleanDomain === "jayjaym.com" ? "www.jayjaym.com" : cleanDomain;
-    const storefrontAccessToken = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || process.env.ACCESS_TOKEN;
+    const cleanDomain = rawDomain
+      .replace(/^https?:\/\//, '')
+      .replace(/\/$/, '');
+
+    // Use the domain as-is (no www prefix needed)
+    const domain = cleanDomain;
+
+    // Support all possible token variable names
+    const storefrontAccessToken =
+      process.env.SHOPIFY_ACCESS_TOKEN ||
+      process.env.NEXT_PUBLIC_SHOPIFY_ACCESS_TOKEN ||
+      process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN ||
+      process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN;
 
     if (!domain || !storefrontAccessToken) {
       const errorMsg = `Shopify credentials missing. Domain: ${domain ? 'Set' : 'Missing'}, Token: ${storefrontAccessToken ? 'Set' : 'Missing'}`;
@@ -93,7 +107,7 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
     }
 
     const json = await response.json();
-    
+
     if (json.errors) {
       const errorMsg = `Shopify GraphQL errors: ${JSON.stringify(json.errors)}`;
       console.error(errorMsg);
@@ -113,7 +127,7 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
         inventoryQuantity: v.node.quantityAvailable || 0,
         availableForSale: v.node.availableForSale,
       }));
-      
+
       return {
         id: edge.node.id,
         title: edge.node.title,
@@ -139,4 +153,3 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
     return { products: [], error: errorMsg };
   }
 }
-
