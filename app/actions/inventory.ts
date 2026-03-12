@@ -1,9 +1,5 @@
-"use server";
-/**
- * getProductInventory - liest Live-Inventar eines Produkts via Shopify Storefront API.
- * WICHTIG: Domain MUSS .myshopify.com sein (jayjaym.com hat CERT_HAS_EXPIRED!).
- * Token: Nur SHOPIFY_ACCESS_TOKEN.
- */
+// KEIN 'use server' hier! Diese Datei wird von API-Route-Handlern importiert.
+// 'use server' wuerde einen Build-Fehler verursachen (Server Actions != Route Handlers).
 export async function getProductInventory(productId: string): Promise<number | null> {
   const rawDomain =
     process.env.SHOPIFY_MYSHOPIFY_DOMAIN ||
@@ -14,11 +10,9 @@ export async function getProductInventory(productId: string): Promise<number | n
     console.error('Shopify credentials missing for inventory. Domain:', rawDomain);
     return null;
   }
-  // Strip protocol and trailing slash
   const domain = rawDomain
     .replace(/^https?:\/\//, '')
     .replace(/\/$/, '');
-  // Sicherheit: nur .myshopify.com erlauben
   if (!domain.includes('.myshopify.com')) {
     console.error('[Inventory] Domain ist keine .myshopify.com:', domain);
     return null;
