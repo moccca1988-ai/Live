@@ -25,36 +25,46 @@ export type GetLiveProductsResult = {
 
 export async function getLiveProducts(): Promise<GetLiveProductsResult> {
   try {
+    // Korrekte Domain - MUSS .myshopify.com sein, nicht custom domain
     const rawDomain =
       process.env.SHOPIFY_STORE_DOMAIN ||
-      process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN ||
-      "jayjaym.com";
+      process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN;
 
-    // Strip protocol and trailing slash if present
-    const cleanDomain = rawDomain
+    if (!rawDomain) {
+      const errorMsg = "SHOPIFY_STORE_DOMAIN ist nicht gesetzt!";
+      console.error(errorMsg);
+      return { products: [], error: errorMsg };
+    }
+
+    // Strip protocol and trailing slash
+    const domain = rawDomain
       .replace(/^https?:\/\//, '')
       .replace(/\/$/, '');
 
-    // Use the domain as-is (no www prefix needed)
-    const domain = cleanDomain;
-
-    // Support all possible token variable names
+    // Korrekte Token-Reihenfolge: Storefront-Token zuerst!
     const storefrontAccessToken =
-      process.env.SHOPIFY_ACCESS_TOKEN ||
-      process.env.NEXT_PUBLIC_SHOPIFY_ACCESS_TOKEN ||
       process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN ||
-      process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN;
+      process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN ||
+      process.env.NEXT_PUBLIC_SHOPIFY_ACCESS_TOKEN ||
+      process.env.SHOPIFY_ACCESS_TOKEN;
 
-    if (!domain || !storefrontAccessToken) {
-      const errorMsg = `Shopify credentials missing. Domain: ${domain ? 'Set' : 'Missing'}, Token: ${storefrontAccessToken ? 'Set' : 'Missing'}`;
+    console.log("[Shopify Debug] Domain:", domain);
+    console.log("[Shopify Debug] Token vorhanden:", !!storefrontAccessToken);
+    console.log("[Shopify Debug] Token Prefix:", storefrontAccessToken?.substring(0, 10));
+
+    if (!storefrontAccessToken) {
+      const errorMsg = "Shopify Storefront Access Token fehlt!";
       console.error(errorMsg);
       return { products: [], error: errorMsg };
     }
 
     const url = `https://${domain}/api/2024-01/graphql.json`;
+    console.log("[Shopify Debug] URL:", url);
+
+    // Vereinfachte Query ohne Filter
     const query = `
       query {
-        products(first: 250) {
+        products(first: 20) {
           edges {
             node {
               id
@@ -74,7 +84,7 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
                   }
                 }
               }
-              variants(first: 10) {
+              variants(first: 1) {
                 edges {
                   node {
                     id
@@ -100,22 +110,26 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
       cache: 'no-store'
     });
 
+    console.log("[Shopify Debug] Response Status:", response.status, response.statusText);
+
     if (!response.ok) {
-      const errorMsg = `Shopify API response not OK: ${response.status} ${response.statusText}`;
+      const body = await response.text();
+      const errorMsg = `Shopify API ${response.status} ${response.statusText}: ${body}`;
       console.error(errorMsg);
       return { products: [], error: errorMsg };
     }
 
     const json = await response.json();
+    console.log("[Shopify Debug] Response JSON:", JSON.stringify(json).substring(0, 500));
 
     if (json.errors) {
-      const errorMsg = `Shopify GraphQL errors: ${JSON.stringify(json.errors)}`;
+      const errorMsg = `Shopify GraphQL Fehler: ${JSON.stringify(json.errors)}`;
       console.error(errorMsg);
       return { products: [], error: errorMsg };
     }
 
-    if (!json.data || !json.data.products) {
-      const errorMsg = `Shopify API empty response: ${JSON.stringify(json)}`;
+    if (!json.data?.products?.edges) {
+      const errorMsg = `Shopify leere Antwort: ${JSON.stringify(json)}`;
       console.error(errorMsg);
       return { products: [], error: errorMsg };
     }
@@ -140,15 +154,18 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
       };
     });
 
+    console.log("[Shopify Debug] Produkte gefunden:", products.length);
+
     if (products.length === 0) {
-      const errorMsg = `Shopify API returned 0 products. Query successful but list is empty.`;
+      const errorMsg = "Shopify liefert 0 Produkte. Checke Kanal-Berechtigung im Shopify Admin unter Einstellungen > Apps > Storefront API.";
       console.warn(errorMsg);
       return { products: [], error: errorMsg };
     }
 
     return { products };
+
   } catch (error: any) {
-    const errorMsg = `Error fetching Shopify products: ${error.message}`;
+    const errorMsg = `Shopify Fetch Fehler: ${error.message}`;
     console.error(errorMsg, error);
     return { products: [], error: errorMsg };
   }
