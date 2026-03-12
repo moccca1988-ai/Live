@@ -27,10 +27,8 @@ export function CheckoutDrawer({ product, isOpen, onClose }: CheckoutDrawerProps
 
   if (!product) return null;
 
-    const checkoutDomain = "jayjaym.myshopify.com";
-  const checkoutUrl = product.handle 
-    ? `https://${checkoutDomain}/products/${product.handle}?variant=${selectedVariantId}`
-    : `https://${checkoutDomain}/search?q=${encodeURIComponent(product.title)}`;
+      const checkoutDomain = "jayjaym.myshopify.com";
+  const checkoutUrl = `https://${checkoutDomain}/cart/${selectedVariantId}:1`;
   const hasVariants = product.variants && product.variants.length > 1;
 
   const selectedVariant = product.variants?.find(v => v.id === selectedVariantId);
