@@ -40,7 +40,7 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
     const url = `https://${domain}/api/2024-01/graphql.json`;
     const query = `
       query {
-        products(first: 10) {
+        products(first: 250) {
           edges {
             node {
               id
