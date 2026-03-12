@@ -32,7 +32,7 @@ interface LiveRoomProps {
 
 export function LiveRoom({ token, isHost, products }: LiveRoomProps) {
   const rawUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
-  const serverUrl = rawUrl 
+  const serverUrl = rawUrl
     ? (rawUrl.startsWith('http') ? rawUrl.replace('http', 'ws') : (rawUrl.startsWith('ws') ? rawUrl : 'wss://' + rawUrl))
     : undefined;
 
@@ -74,13 +74,13 @@ function StreamContent({
 }) {
   const [pinnedProduct, setPinnedProduct] = useState<ShopifyProduct | null>(null);
   const [inventoryCount, setInventoryCount] = useState<number | null>(null);
-  const [estimatedSales, setEstimatedSales] = useState<number>(0);
+  const [estimatedSales, setEstimatedSales] = useState(0);
   const [prevPinnedProductId, setPrevPinnedProductId] = useState<string | null>(null);
   const [isProductDrawerOpen, setIsProductDrawerOpen] = useState(false);
-  
+
   const participants = useParticipants();
   const viewerCount = participants.length;
-  
+
   const currentPinnedId = pinnedProduct?.id ?? null;
   if (currentPinnedId !== prevPinnedProductId) {
     if (!pinnedProduct) {
@@ -88,19 +88,14 @@ function StreamContent({
     }
     setPrevPinnedProductId(currentPinnedId);
   }
-  
+
   const { localParticipant } = useLocalParticipant();
-  
-  // Mic Level Indicator Logic
   const [micLevel, setMicLevel] = useState(0);
   useEffect(() => {
     if (!isHost || !localParticipant) return;
-    
     const interval = setInterval(() => {
-      // LiveKit audioLevel is 0-1
       setMicLevel(localParticipant.audioLevel * 100);
     }, 100);
-    
     return () => clearInterval(interval);
   }, [isHost, localParticipant]);
 
@@ -141,17 +136,13 @@ function StreamContent({
   });
 
   useEffect(() => {
-    if (!pinnedProduct) {
-      return;
-    }
-
+    if (!pinnedProduct) return;
     const fetchInventory = async () => {
       const count = await getProductInventory(pinnedProduct.id);
       setInventoryCount(count);
     };
-
     fetchInventory();
-    const interval = setInterval(fetchInventory, 30000); // 30s
+    const interval = setInterval(fetchInventory, 30000);
     return () => clearInterval(interval);
   }, [pinnedProduct]);
 
@@ -161,7 +152,7 @@ function StreamContent({
       JSON.stringify({ type: "PIN_PRODUCT", product }),
     );
     sendPin(payload, { reliable: true });
-    setIsProductDrawerOpen(false); // Close drawer on pin
+    setIsProductDrawerOpen(false);
   };
 
   const handleUnpinProduct = () => {
@@ -173,210 +164,157 @@ function StreamContent({
   };
 
   return (
-    <div className="relative h-screen w-full bg-black overflow-hidden">
-      {/* Video Background Anker */}
-      <div className="fixed inset-0 z-0 bg-zinc-900 flex items-center justify-center">
+    <div className="relative w-full h-full overflow-hidden bg-black">
+      {/* === VIDEO BACKGROUND: Fullscreen fixed === */}
+      <div className="fixed inset-0 w-full h-full z-0">
         {hostTrack && hostTrack.publication ? (
           <VideoTrack
             trackRef={hostTrack}
             className="w-full h-full object-cover"
-            style={{ width: '100%', height: '100%' }}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center h-full w-full bg-zinc-950 relative overflow-hidden">
-            <Image 
-              src="https://picsum.photos/seed/stream-bg/1920/1080?blur=10" 
-              alt="Coming Soon" 
-              fill 
-              className="object-cover opacity-30"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/50 to-black" />
-            <div className="relative z-10 flex flex-col items-center">
-              <div className="w-24 h-24 rounded-full bg-zinc-900/80 border-2 border-emerald-500/50 flex items-center justify-center mb-8 shadow-[0_0_50px_rgba(52,211,153,0.2)] backdrop-blur-xl">
-                <Video className="w-10 h-10 text-emerald-400 animate-pulse" />
-              </div>
-              <h2 className="text-4xl font-black text-white mb-4 tracking-tighter uppercase italic">Coming Soon</h2>
-              <div className="flex items-center gap-3 px-4 py-2 bg-white/5 backdrop-blur-md rounded-full border border-white/10">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                <p className="text-zinc-300 font-bold text-xs uppercase tracking-widest">Host is preparing the stage</p>
-              </div>
-            </div>
+          <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-950">
+            <Video className="w-16 h-16 text-zinc-700 mb-4" />
+            <h2 className="text-zinc-500 text-xl font-semibold">Coming Soon</h2>
+            <p className="text-zinc-600 text-sm mt-2">Host is preparing the stage</p>
           </div>
         )}
       </div>
 
-      {/* Overlay Layer */}
-      <div className="relative z-10 h-full w-full pointer-events-none flex flex-col">
+      {/* === OVERLAY LAYER: All UI on top of video === */}
+      <div className="relative z-10 w-full h-full flex flex-col">
+
         {/* Top Bar: Stats & Badges */}
-        <div className="p-4 flex justify-between items-start">
-          <div className="flex flex-col gap-2">
-            <div className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest animate-pulse shadow-lg flex items-center gap-1 w-fit">
-              <div className="w-1.5 h-1.5 rounded-full bg-white" />
-              Live
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="bg-black/40 backdrop-blur-md text-white text-[10px] px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-white/10 shadow-xl">
-                <Users className="w-3 h-3 text-blue-400" />
-                <span className="font-bold">{viewerCount}</span>
-              </div>
-              {isHost && (
-                <div className="bg-black/40 backdrop-blur-md text-white text-[10px] px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10 shadow-xl">
-                  <TrendingUp className="w-3 h-3 text-emerald-400" />
-                  <span className="font-bold">${estimatedSales.toFixed(2)}</span>
-                </div>
-              )}
-            </div>
+        <div className="flex items-center gap-2 p-4 pt-safe">
+          <span className="bg-red-500 text-white text-xs font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">Live</span>
+          <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full">
+            <Users className="w-3.5 h-3.5" />
+            <span>{viewerCount}</span>
           </div>
-          
-          <div className="bg-black/40 backdrop-blur-md text-white text-[10px] px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-white/10 shadow-xl">
-            <Heart className="w-3 h-3 text-pink-400" />
-            <span className="font-bold">8.4k</span>
+          {isHost && (
+            <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm text-emerald-400 text-xs px-3 py-1.5 rounded-full">
+              <DollarSign className="w-3.5 h-3.5" />
+              <span>${estimatedSales.toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full">
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>8.4k</span>
           </div>
         </div>
 
-        {/* Middle Area: Pinned Product */}
-        <div className="relative z-50 flex-1 flex items-center justify-center">
-          {pinnedProduct && (
-            <div className="w-full max-w-md px-4 pointer-events-auto">
+        {/* Spacer to push content to edges */}
+        <div className="flex-1 flex">
+          {/* Left side: Pinned Product */}
+          <div className="p-4 flex flex-col justify-center">
+            {pinnedProduct && (
               <PinnedProduct
                 product={pinnedProduct}
                 isHost={isHost}
                 onUnpin={handleUnpinProduct}
                 inventoryCount={inventoryCount}
               />
-            </div>
-          )}
+            )}
+          </div>
+          <div className="flex-1" />
         </div>
 
         {/* Bottom Area: Chat & Controls */}
-        <div className="p-4 flex items-end justify-between gap-4">
-          {/* Chat Overlay - Floating Bottom Left */}
-          <div className="w-full max-w-[320px] h-[300px] bg-black/30 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden pointer-events-auto flex flex-col">
-            <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
-              <ChatOverlay isHost={isHost} />
-            </div>
+        <div className="p-4 flex items-end gap-3">
+          {/* Chat Overlay */}
+          <div className="flex-1">
+            <ChatOverlay isHost={isHost} />
           </div>
 
-          {/* Host Controls / Product Trigger */}
-          <div className="flex flex-col gap-3 pointer-events-auto">
-            {isHost && (
-              <button
-                onClick={() => setIsProductDrawerOpen(true)}
-                className="w-14 h-14 bg-white text-black rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
-              >
-                <ShoppingCart className="w-6 h-6" />
-              </button>
-            )}
-            {!isHost && (
-              <button className="w-12 h-12 bg-pink-500 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-transform">
-                <Heart className="w-6 h-6 fill-current" />
-              </button>
-            )}
-          </div>
+          {/* Host Controls */}
+          {isHost && (
+            <button
+              onClick={() => setIsProductDrawerOpen(true)}
+              className="w-14 h-14 bg-white text-black rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+            >
+              <ShoppingCart className="w-6 h-6" />
+            </button>
+          )}
+
+          {!isHost && (
+            <FloatingHearts />
+          )}
         </div>
       </div>
 
-      {/* Floating Hearts Layer */}
-      <div className="fixed inset-0 pointer-events-none z-20">
-        <FloatingHearts isHost={isHost} />
-      </div>
+      {/* Host Product Drawer */}
+      {isHost && isProductDrawerOpen && (
+        <>
+          <div
+            onClick={() => setIsProductDrawerOpen(false)}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-[110]"
+          />
+          <div className="fixed bottom-0 left-0 right-0 z-[120] bg-zinc-950 rounded-t-3xl p-6 max-h-[70vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-white text-xl font-black">Products</h2>
+                <p className="text-zinc-400 text-sm">Select to pin to stream</p>
+              </div>
+              <button
+                onClick={() => setIsProductDrawerOpen(false)}
+                className="p-3 bg-white/5 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-      {/* Host Product Drawer (Bottom Sheet) */}
-      <AnimatePresence>
-        {isHost && isProductDrawerOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsProductDrawerOpen(false)}
-              className="fixed inset-0 bg-black/80 backdrop-blur-md z-[110]"
-            />
-            <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed inset-x-0 bottom-0 bg-zinc-950 border-t border-white/10 rounded-t-[40px] z-[120] max-h-[85vh] flex flex-col shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
-            >
-              <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto my-5 shrink-0" />
-              
-              <div className="px-8 pb-6 flex items-center justify-between shrink-0">
-                <div>
-                  <h2 className="text-white font-black text-2xl tracking-tight">Products</h2>
-                  <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mt-1">Select to pin to stream</p>
-                </div>
-                <button
-                  onClick={() => setIsProductDrawerOpen(false)}
-                  className="p-3 bg-white/5 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              
-              <div className="flex-1 overflow-y-auto px-8 pb-12 custom-scrollbar">
-                {products.length === 0 ? (
-                  <div className="py-20 text-center">
-                    <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <ShoppingCart className="w-8 h-8 text-zinc-600" />
+            {products.length === 0 ? (
+              <p className="text-zinc-500 text-sm text-center py-8">No products available.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {products.map((product) => {
+                  const isPinned = product.id === pinnedProduct?.id;
+                  return (
+                    <div
+                      key={product.id}
+                      className={`relative rounded-2xl overflow-hidden border ${
+                        isPinned ? "border-emerald-500" : "border-white/10"
+                      } bg-zinc-900`}
+                    >
+                      {isPinned && (
+                        <span className="absolute top-2 left-2 bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full z-10">Pinned</span>
+                      )}
+                      <div className="relative w-full h-32 bg-zinc-800">
+                        <Image
+                          src={product.imageUrl}
+                          alt={product.title}
+                          fill
+                          className="object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                      <div className="p-3">
+                        <h4 className="text-white text-xs font-semibold line-clamp-2 mb-1">{product.title}</h4>
+                        <p className="text-emerald-400 font-bold text-sm mb-2">{product.price} {product.currency}</p>
+                        {isPinned ? (
+                          <button
+                            onClick={handleUnpinProduct}
+                            className="w-full px-3 py-2 bg-zinc-700 text-zinc-300 rounded-xl text-xs font-bold"
+                          >
+                            Unpin
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handlePinProduct(product)}
+                            className="w-full px-3 py-2 bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-all"
+                          >
+                            Pin
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-zinc-500 font-bold mb-2">No products available.</p>
-                    <p className="text-zinc-600 text-xs">
-                      Checke Shopify für: {process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || "jayjaym.com"}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 gap-4">
-                    {products.map((product) => {
-                      const isPinned = product.id === pinnedProduct?.id;
-                      return (
-                        <div key={product.id} className={`flex items-center gap-5 p-5 rounded-[24px] border transition-all ${
-                          isPinned 
-                            ? "bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]" 
-                            : "bg-white/5 border-white/5 hover:bg-white/10"
-                        }`}>
-                          <div className="relative w-24 h-24 rounded-2xl overflow-hidden shrink-0 shadow-2xl border border-white/5">
-                            <Image src={product.imageUrl} alt={product.title} fill className="object-cover" />
-                            {isPinned && (
-                              <div className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center">
-                                <div className="bg-emerald-500 text-white text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">Pinned</div>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-white font-bold text-base truncate mb-1">{product.title}</h4>
-                            <p className="text-emerald-400 font-black text-lg">{product.price} {product.currency}</p>
-                          </div>
-                          
-                          <div className="flex flex-col gap-2">
-                            {isPinned ? (
-                              <button
-                                onClick={handleUnpinProduct}
-                                className="px-6 py-3 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
-                              >
-                                Unpin
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handlePinProduct(product)}
-                                className="px-6 py-3 bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
-                              >
-                                Pin
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                  );
+                })}
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
