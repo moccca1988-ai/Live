@@ -1,29 +1,25 @@
 "use client";
-
 import { useState, useEffect, useCallback } from "react";
 import { LiveRoom } from "@/components/LiveRoom";
 import { ShopifyProduct } from "@/lib/shopify";
-
 export default function HostPage() {
   const [token, setToken] = useState("");
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
   const [error, setError] = useState("");
   const [shopifyError, setShopifyError] = useState("");
+  const [shopifyDebug, setShopifyDebug] = useState("");
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [retryVisible, setRetryVisible] = useState(false);
-
   const fetchProducts = useCallback(() => {
     setLoadingProducts(true);
     setShopifyError("");
+    setShopifyDebug("");
     setRetryVisible(false);
-
-    // 10-Sekunden Timeout - danach "Erneut versuchen" Button anzeigen
+    // 10-Sekunden Timeout
     const timeout = setTimeout(() => {
       setRetryVisible(true);
     }, 10000);
-
-    // Produkte via API-Route statt direkt als Server Action
-    // (verhindert "Failed to find Server Action" 404 bei Re-Deployments)
+    // Produkte via API-Route
     fetch('/api/shopify/products')
       .then((res) => res.json())
       .then((res) => {
@@ -32,7 +28,17 @@ export default function HostPage() {
         if (res.error) {
           setShopifyError(res.error);
         }
-        setProducts(res.products || []);
+        if (res.debug) {
+          setShopifyDebug(res.debug);
+        }
+        const loadedProducts = res.products || [];
+        setProducts(loadedProducts);
+        // If 0 products and no explicit error, show debug info
+        if (loadedProducts.length === 0 && !res.error) {
+          const debugInfo = res.debug || `Domain: ${process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN ?? 'nicht gesetzt'}`;
+          setShopifyError(`Shopify liefert 0 Produkte. Debug-Info: ${debugInfo}`);
+          setShopifyDebug(debugInfo);
+        }
       })
       .catch((err) => {
         clearTimeout(timeout);
@@ -41,11 +47,9 @@ export default function HostPage() {
         setShopifyError(err.message || "Failed to load Shopify products");
       });
   }, []);
-
   useEffect(() => {
     // Fetch products
     fetchProducts();
-
     // Fetch LiveKit token
     const fetchToken = async () => {
       try {
@@ -64,7 +68,6 @@ export default function HostPage() {
     };
     fetchToken();
   }, [fetchProducts]);
-
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-950 text-white p-6 text-center">
@@ -78,7 +81,6 @@ export default function HostPage() {
       </div>
     );
   }
-
   if (!token) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-zinc-950 text-white">
@@ -86,13 +88,21 @@ export default function HostPage() {
       </div>
     );
   }
-
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-white">
       {shopifyError && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 m-4">
           <p className="text-red-400 font-bold">Shopify Fehler:</p>
-          <p className="text-zinc-300 text-sm">{shopifyError}</p>
+          <p className="text-red-300 text-sm font-mono mt-1">{shopifyError}</p>
+          {shopifyDebug && (
+            <p className="text-red-400 text-xs mt-2 font-mono">Debug: {shopifyDebug}</p>
+          )}
+          {products.length === 0 && (
+            <p className="text-yellow-400 text-xs mt-2">
+              Tipp: Setze <code className="bg-zinc-800 px-1 rounded">SHOPIFY_MYSHOPIFY_DOMAIN=deinshop.myshopify.com</code> und{' '}
+              <code className="bg-zinc-800 px-1 rounded">SHOPIFY_ACCESS_TOKEN=dein_token</code> in den Vercel Environment Variables.
+            </p>
+          )}
           {retryVisible && (
             <button
               onClick={fetchProducts}
