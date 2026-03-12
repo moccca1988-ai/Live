@@ -236,7 +236,7 @@ function StreamContent({
         </div>
 
         {/* Middle Area: Pinned Product */}
-        <div className="flex-1 flex items-center justify-center">
+        <div className="relative z-50 flex-1 flex items-center justify-center">
           {pinnedProduct && (
             <div className="w-full max-w-md px-4 pointer-events-auto">
               <PinnedProduct
