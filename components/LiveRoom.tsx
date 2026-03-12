@@ -6,7 +6,6 @@ import { PinnedProduct } from "./PinnedProduct";
 import { ProductList } from "./ProductList";
 import { ChatOverlay } from "./ChatOverlay";
 import { FloatingHearts } from "./FloatingHearts";
-import { getProductInventory } from "@/app/actions/inventory";
 import { Users, Heart, DollarSign, Video, TrendingUp, ShoppingCart, X, Mic, MicOff } from "lucide-react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "motion/react";
@@ -39,9 +38,7 @@ export function LiveRoom({ token, isHost, products }: LiveRoomProps) {
   if (!serverUrl) {
     return (
       <div className="flex items-center justify-center h-full w-full">
-        <p className="text-red-500">
-          NEXT_PUBLIC_LIVEKIT_URL is not defined in .env
-        </p>
+        <p className="text-red-500">NEXT_PUBLIC_LIVEKIT_URL is not defined in .env</p>
       </div>
     );
   }
@@ -135,12 +132,20 @@ function StreamContent({
     }
   });
 
+  // Inventory via API-Route statt Server Action (verhindert 404 nach Re-Deployments)
   useEffect(() => {
     if (!pinnedProduct) return;
+
     const fetchInventory = async () => {
-      const count = await getProductInventory(pinnedProduct.id);
-      setInventoryCount(count);
+      try {
+        const res = await fetch(`/api/shopify/inventory?productId=${encodeURIComponent(pinnedProduct.id)}`);
+        const data = await res.json();
+        setInventoryCount(data.count ?? null);
+      } catch (e) {
+        console.error("Error fetching inventory:", e);
+      }
     };
+
     fetchInventory();
     const interval = setInterval(fetchInventory, 30000);
     return () => clearInterval(interval);
@@ -164,64 +169,52 @@ function StreamContent({
   };
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-black">
+    <div className="relative flex h-full w-full overflow-hidden">
       {/* === VIDEO BACKGROUND: Fullscreen fixed === */}
-      <div className="fixed inset-0 w-full h-full z-0">
+      <div className="absolute inset-0 bg-black">
         {hostTrack && hostTrack.publication ? (
-          <VideoTrack
-            trackRef={hostTrack}
-            className="w-full h-full object-cover"
-          />
+          <VideoTrack trackRef={hostTrack} className="absolute inset-0 w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-950">
-            <Video className="w-16 h-16 text-zinc-700 mb-4" />
-            <h2 className="text-zinc-500 text-xl font-semibold">Coming Soon</h2>
-            <p className="text-zinc-600 text-sm mt-2">Host is preparing the stage</p>
+          <div className="absolute inset-0 flex items-center justify-center bg-zinc-900">
+            <Video className="w-16 h-16 text-zinc-600" />
           </div>
         )}
       </div>
 
       {/* === OVERLAY LAYER: All UI on top of video === */}
-      <div className="relative z-10 w-full h-full flex flex-col">
+      <div className="relative z-10 flex flex-col h-full w-full pointer-events-none">
 
         {/* Top Bar: Stats & Badges */}
-        <div className="flex items-center gap-2 p-4">
-          <span className="bg-red-500 text-white text-xs font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">Live</span>
-          <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full">
-            <Users className="w-3.5 h-3.5" />
-            <span>{viewerCount}</span>
-          </div>
+        <div className="flex items-center gap-2 p-3 pointer-events-auto">
+          <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">Live</span>
+          <span className="bg-black/50 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+            <Users className="w-3 h-3" />{viewerCount}
+          </span>
           {isHost && (
-            <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm text-emerald-400 text-xs px-3 py-1.5 rounded-full">
-              <DollarSign className="w-3.5 h-3.5" />
-              <span>${estimatedSales.toFixed(2)}</span>
-            </div>
+            <span className="bg-black/50 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+              <DollarSign className="w-3 h-3" />${estimatedSales.toFixed(2)}
+            </span>
           )}
-          <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full">
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>8.4k</span>
-          </div>
+          <span className="bg-black/50 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+            <TrendingUp className="w-3 h-3" />8.4k
+          </span>
         </div>
 
         {/* Middle: Pinned Product */}
-        <div className="flex-1 flex">
-          <div className="p-4 flex flex-col justify-center">
-            {pinnedProduct && (
-              <PinnedProduct
-                product={pinnedProduct}
-                isHost={isHost}
-                onUnpin={handleUnpinProduct}
-                inventoryCount={inventoryCount}
-              />
-            )}
-          </div>
-          <div className="flex-1" />
+        <div className="flex-1 flex items-end pb-4 px-3 pointer-events-auto">
+          {pinnedProduct && (
+            <PinnedProduct
+              product={pinnedProduct}
+              inventoryCount={inventoryCount}
+              onUnpin={isHost ? handleUnpinProduct : undefined}
+            />
+          )}
         </div>
 
         {/* Bottom Area: Chat & Controls */}
-        <div className="p-4 flex items-end gap-3">
+        <div className="flex items-end gap-3 p-3 pointer-events-auto">
           <div className="flex-1">
-            <ChatOverlay isHost={isHost} />
+            {!isHost && (<ChatOverlay />)}
           </div>
 
           {isHost && (
@@ -233,11 +226,21 @@ function StreamContent({
             </button>
           )}
 
-          {!isHost && (
-            <FloatingHearts isHost={isHost} />
+          {isHost && (
+            <div
+              className="w-14 h-14 bg-black/50 rounded-full flex items-center justify-center"
+              style={{ boxShadow: `0 0 ${micLevel}px ${micLevel / 2}px rgba(255,255,255,0.3)` }}
+            >
+              {localParticipant?.isMicrophoneEnabled
+                ? <Mic className="w-6 h-6 text-white" />
+                : <MicOff className="w-6 h-6 text-red-400" />}
+            </div>
           )}
         </div>
       </div>
+
+      {/* Floating Hearts */}
+      <FloatingHearts />
 
       {/* Host Product Drawer */}
       {isHost && isProductDrawerOpen && (
@@ -246,10 +249,10 @@ function StreamContent({
             onClick={() => setIsProductDrawerOpen(false)}
             className="fixed inset-0 bg-black/80 backdrop-blur-md z-[110]"
           />
-          <div className="fixed bottom-0 left-0 right-0 z-[120] bg-zinc-950 rounded-t-3xl p-6 max-h-[70vh] overflow-y-auto">
+          <div className="fixed bottom-0 left-0 right-0 bg-zinc-900 rounded-t-3xl z-[120] max-h-[70vh] overflow-y-auto p-4">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-white text-xl font-black">Products</h2>
+                <h2 className="text-white font-bold text-lg">Products</h2>
                 <p className="text-zinc-400 text-sm">Select to pin to stream</p>
               </div>
               <button
@@ -261,53 +264,17 @@ function StreamContent({
             </div>
 
             {products.length === 0 ? (
-              <p className="text-zinc-500 text-sm text-center py-8">No products available.</p>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {products.map((product) => {
-                  const isPinned = product.id === pinnedProduct?.id;
-                  return (
-                    <div
-                      key={product.id}
-                      className={`relative rounded-2xl overflow-hidden border ${
-                        isPinned ? "border-emerald-500" : "border-white/10"
-                      } bg-zinc-900`}
-                    >
-                      {isPinned && (
-                        <span className="absolute top-2 left-2 bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full z-10">Pinned</span>
-                      )}
-                      <div className="relative w-full h-32 bg-zinc-800">
-                        <Image
-                          src={product.imageUrl}
-                          alt={product.title}
-                          fill
-                          className="object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                      <div className="p-3">
-                        <h4 className="text-white text-xs font-semibold line-clamp-2 mb-1">{product.title}</h4>
-                        <p className="text-emerald-400 font-bold text-sm mb-2">{product.price} {product.currency}</p>
-                        {isPinned ? (
-                          <button
-                            onClick={handleUnpinProduct}
-                            className="w-full px-3 py-2 bg-zinc-700 text-zinc-300 rounded-xl text-xs font-bold"
-                          >
-                            Unpin
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handlePinProduct(product)}
-                            className="w-full px-3 py-2 bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-all"
-                          >
-                            Pin
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="text-center py-8 text-zinc-500">
+                <ShoppingCart className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>No products available.</p>
+                <p className="text-xs mt-1">Checke SHOPIFY_STORE_DOMAIN in Vercel (muss .myshopify.com sein)</p>
               </div>
+            ) : (
+              <ProductList
+                products={products}
+                onPin={handlePinProduct}
+                pinnedProductId={pinnedProduct?.id}
+              />
             )}
           </div>
         </>
