@@ -185,7 +185,7 @@ function StreamContent({
       <div className="relative z-10 w-full h-full flex flex-col">
 
         {/* Top Bar: Stats & Badges */}
-        <div className="flex items-center gap-2 p-4 pt-safe">
+        <div className="flex items-center gap-2 p-4">
           <span className="bg-red-500 text-white text-xs font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">Live</span>
           <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full">
             <Users className="w-3.5 h-3.5" />
@@ -203,9 +203,8 @@ function StreamContent({
           </div>
         </div>
 
-        {/* Spacer to push content to edges */}
+        {/* Middle: Pinned Product */}
         <div className="flex-1 flex">
-          {/* Left side: Pinned Product */}
           <div className="p-4 flex flex-col justify-center">
             {pinnedProduct && (
               <PinnedProduct
@@ -221,12 +220,10 @@ function StreamContent({
 
         {/* Bottom Area: Chat & Controls */}
         <div className="p-4 flex items-end gap-3">
-          {/* Chat Overlay */}
           <div className="flex-1">
             <ChatOverlay isHost={isHost} />
           </div>
 
-          {/* Host Controls */}
           {isHost && (
             <button
               onClick={() => setIsProductDrawerOpen(true)}
@@ -237,7 +234,7 @@ function StreamContent({
           )}
 
           {!isHost && (
-            <FloatingHearts />
+            <FloatingHearts isHost={isHost} />
           )}
         </div>
       </div>
