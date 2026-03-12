@@ -18,6 +18,7 @@ export interface ShopifyProduct {
 export type GetLiveProductsResult = {
   products: ShopifyProduct[];
   error?: string;
+  debug?: string;
 };
 export async function getLiveProducts(): Promise<GetLiveProductsResult> {
   try {
@@ -26,38 +27,41 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
       process.env.SHOPIFY_MYSHOPIFY_DOMAIN ||
       process.env.SHOPIFY_STORE_DOMAIN ||
       process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN;
+    const storefrontAccessToken = process.env.SHOPIFY_ACCESS_TOKEN;
     if (!rawDomain) {
       const errorMsg = "SHOPIFY_STORE_DOMAIN ist nicht gesetzt!";
       console.error(errorMsg);
-      return { products: [], error: errorMsg };
+      return { products: [], error: errorMsg, debug: `Domain: undefined, Token-Laenge: ${storefrontAccessToken?.length ?? 0}` };
     }
     // Strip protocol and trailing slash
     let domain = rawDomain
       .replace(/^https?:\/\//, '')
       .replace(/\/$/, '');
-    // If custom domain (not .myshopify.com), warn but don't hard-fail
-    // The Storefront API requires .myshopify.com - log clear error
+    // Debug info - always log for diagnosis
+    const tokenLen = storefrontAccessToken?.length ?? 0;
+    console.log(`[Shopify] Domain: ${domain}, Token-Laenge: ${tokenLen}`);
     if (!domain.includes('.myshopify.com')) {
-      console.error(
-        '[Shopify] KRITISCH: Domain ist keine .myshopify.com Domain:',
-        domain,
-        '- Setze SHOPIFY_MYSHOPIFY_DOMAIN=<shopname>.myshopify.com in Vercel Environment Variables!'
-      );
+      const errorMsg = `Shopify Domain-Fehler: "${domain}" ist keine .myshopify.com Domain. Bitte setze SHOPIFY_MYSHOPIFY_DOMAIN=<shopname>.myshopify.com in den Vercel Environment Variables.`;
+      console.error('[Shopify] KRITISCH:', errorMsg);
       return {
         products: [],
-        error: `Shopify Domain-Fehler: "${domain}" ist keine .myshopify.com Domain. Bitte setze SHOPIFY_MYSHOPIFY_DOMAIN=<shopname>.myshopify.com in den Vercel Environment Variables.`,
+        error: errorMsg,
+        debug: `Domain: ${domain}, Token-Laenge: ${tokenLen}`,
       };
     }
-    // Only SHOPIFY_ACCESS_TOKEN (as per requirement)
-    const storefrontAccessToken = process.env.SHOPIFY_ACCESS_TOKEN;
     if (!storefrontAccessToken) {
       const errorMsg = "SHOPIFY_ACCESS_TOKEN ist nicht gesetzt!";
       console.error(errorMsg);
-      return { products: [], error: errorMsg };
+      return { products: [], error: errorMsg, debug: `Domain: ${domain}, Token-Laenge: 0` };
     }
+    // API version 2024-01 (stable for Storefront queries)
     const url = `https://${domain}/api/2024-01/graphql.json`;
+    // Combined query: shop name for diagnosis + products
     const query = `
       query {
+        shop {
+          name
+        }
         products(first: 20) {
           edges {
             node {
@@ -94,11 +98,12 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
       }
     `;
     const response = await fetch(url, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Storefront-Access-Token": storefrontAccessToken,
-        "User-Agent": "Vercel-Server-Fetch",
+        'Content-Type': 'application/json',
+        // EXACT header name - case sensitive for some Shopify API versions
+        'X-Shopify-Storefront-Access-Token': storefrontAccessToken,
+        'User-Agent': 'Vercel-Server-Fetch',
       },
       body: JSON.stringify({ query }),
       cache: 'no-store',
@@ -107,43 +112,58 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
       const body = await response.text();
       const errorMsg = `Shopify API ${response.status} ${response.statusText}: ${body}`;
       console.error('Shopify Fetch fehlgeschlagen bei:', url);
-      return { products: [], error: errorMsg };
+      return { products: [], error: errorMsg, debug: `Domain: ${domain}, Token-Laenge: ${tokenLen}` };
     }
     const json = await response.json();
+    // Log shop name for diagnosis
+    const shopName = json?.data?.shop?.name;
+    console.log(`[Shopify] Shop-Name: ${shopName ?? 'UNBEKANNT'}, GraphQL-Fehler: ${json.errors ? JSON.stringify(json.errors) : 'keine'}`);
     if (json.errors) {
       const errorMsg = `Shopify GraphQL Fehler: ${JSON.stringify(json.errors)}`;
       console.error('Shopify Fetch fehlgeschlagen bei:', url);
-      return { products: [], error: errorMsg };
+      return { products: [], error: errorMsg, debug: `Domain: ${domain}, Token-Laenge: ${tokenLen}, Shop: ${shopName ?? 'n/a'}` };
     }
-    if (!json.data?.products?.edges) {
-      const errorMsg = `Shopify leere Antwort: ${JSON.stringify(json)}`;
+    // Support BOTH formats: edges/node (standard) AND nodes (newer)
+    const productEdges = json.data?.products?.edges;
+    const productNodes = json.data?.products?.nodes;
+    const rawProducts = productEdges
+      ? productEdges.map((e: any) => e.node)
+      : productNodes ?? [];
+    if (!rawProducts || rawProducts.length === 0) {
+      const debugMsg = `Domain: ${domain}, Token-Laenge: ${tokenLen}, Shop: ${shopName ?? 'n/a'}`;
+      const errorMsg = `Shopify liefert 0 Produkte. Debug-Info: ${debugMsg}. Checke Kanal-Berechtigung im Shopify Admin unter Einstellungen > Apps > Storefront API.`;
       console.error(errorMsg);
-      return { products: [], error: errorMsg };
+      return { products: [], error: errorMsg, debug: debugMsg };
     }
-    const products: ShopifyProduct[] = json.data.products.edges.map((edge: any) => {
-      const variants: ShopifyVariant[] = edge.node.variants.edges.map((v: any) => ({
-        id: v.node.id.split("/").pop(),
-        title: v.node.title,
-        inventoryQuantity: v.node.quantityAvailable || 0,
-        availableForSale: v.node.availableForSale,
+    const products: ShopifyProduct[] = rawProducts.map((node: any) => {
+      // Support both edges/node and nodes format for variants/images too
+      const variantEdges = node.variants?.edges ?? [];
+      const variants: ShopifyVariant[] = (
+        variantEdges.length > 0
+          ? variantEdges.map((v: any) => v.node)
+          : node.variants?.nodes ?? []
+      ).map((v: any) => ({
+        id: (v.id ?? '').split('/').pop() ?? v.id,
+        title: v.title,
+        inventoryQuantity: v.quantityAvailable || 0,
+        availableForSale: v.availableForSale,
       }));
+      const imageEdges = node.images?.edges ?? [];
+      const firstImageUrl = imageEdges.length > 0
+        ? imageEdges[0]?.node?.url
+        : node.images?.nodes?.[0]?.url ?? '';
       return {
-        id: edge.node.id,
-        title: edge.node.title,
-        handle: edge.node.handle,
-        price: edge.node.priceRange.minVariantPrice.amount,
-        currency: edge.node.priceRange.minVariantPrice.currencyCode,
-        imageUrl: (edge.node.images.edges[0]?.node.url || "").replace(/^http:\/\//, 'https://'),
-        variantId: variants[0]?.id || "",
+        id: node.id,
+        title: node.title,
+        handle: node.handle,
+        price: node.priceRange?.minVariantPrice?.amount ?? '0',
+        currency: node.priceRange?.minVariantPrice?.currencyCode ?? 'EUR',
+        imageUrl: (firstImageUrl || '').replace(/^http:\/\//, 'https://'),
+        variantId: variants[0]?.id ?? '',
         variants,
       };
     });
-    if (products.length === 0) {
-      const errorMsg =
-        "Shopify liefert 0 Produkte. Checke Kanal-Berechtigung im Shopify Admin unter Einstellungen > Apps > Storefront API.";
-      console.error(errorMsg);
-      return { products: [], error: errorMsg };
-    }
+    console.log(`[Shopify] ${products.length} Produkte geladen. Shop: ${shopName}`);
     return { products };
   } catch (error: any) {
     console.error('Shopify Fetch fehlgeschlagen bei:', error?.message, error?.stack);
