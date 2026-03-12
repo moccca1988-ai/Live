@@ -27,12 +27,20 @@ export function CheckoutDrawer({ product, isOpen, onClose }: CheckoutDrawerProps
 
   if (!product) return null;
 
-      const checkoutDomain = "jayjaym.myshopify.com";
-  const checkoutUrl = `https://${checkoutDomain}/cart/${selectedVariantId}:1`;
-  const hasVariants = product.variants && product.variants.length > 1;
+  // Use jayjaym.com directly (SSL is valid, no Cloudflare bypass needed)
+  const storeDomain = (process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || "jayjaym.com")
+    .replace(/^https?:\/\//, '')
+    .replace(/\/$/, '');
 
+  const checkoutUrl = product.handle
+    ? `https://${storeDomain}/products/${product.handle}?variant=${selectedVariantId}`
+    : `https://${storeDomain}/search?q=${encodeURIComponent(product.title)}`;
+
+  const hasVariants = product.variants && product.variants.length > 1;
   const selectedVariant = product.variants?.find(v => v.id === selectedVariantId);
-  const isSelectedSoldOut = selectedVariant ? (!selectedVariant.availableForSale || selectedVariant.inventoryQuantity === 0) : false;
+  const isSelectedSoldOut = selectedVariant
+    ? (!selectedVariant.availableForSale || selectedVariant.inventoryQuantity === 0)
+    : false;
 
   return (
     <AnimatePresence>
@@ -80,12 +88,7 @@ export function CheckoutDrawer({ product, isOpen, onClose }: CheckoutDrawerProps
                   {product.variants.map((variant) => {
                     const isSoldOut = !variant.availableForSale || variant.inventoryQuantity === 0;
                     return (
-                      <option 
-                        key={variant.id} 
-                        value={variant.id} 
-                        className="text-black"
-                        disabled={isSoldOut}
-                      >
+                      <option key={variant.id} value={variant.id} className="text-black" disabled={isSoldOut}>
                         {variant.title} {isSoldOut ? "(Sold Out)" : ""}
                       </option>
                     );
@@ -95,24 +98,20 @@ export function CheckoutDrawer({ product, isOpen, onClose }: CheckoutDrawerProps
             )}
 
             {isSelectedSoldOut ? (
-              <button
-                disabled
-                className="w-full bg-zinc-700 text-zinc-400 py-4 px-6 rounded-xl text-lg font-bold flex items-center justify-center gap-2 cursor-not-allowed"
-              >
-                <ShoppingCart className="w-5 h-5" />
+              <button disabled className="w-full bg-zinc-700 text-zinc-500 py-4 px-6 rounded-xl text-lg font-bold cursor-not-allowed">
                 Sold Out
               </button>
             ) : (
-              <button
-                onClick={() => {
-                  const win = window.open('about:blank', '_blank'); if (win) { win.opener = null; win.document.write('<meta http-equiv="refresh" content="0;url=' + checkoutUrl + '">'); win.document.close(); }
-                  onClose();
-                }}
+              <a
+                href={checkoutUrl}
+                target="_blank"
+                rel="noopener"
+                onClick={onClose}
                 className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 px-6 rounded-xl text-lg font-bold transition-colors shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
               >
                 <ShoppingCart className="w-5 h-5" />
                 Proceed to Checkout
-              </button>
+              </a>
             )}
           </motion.div>
         </>
