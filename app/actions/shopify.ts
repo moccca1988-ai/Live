@@ -1,11 +1,12 @@
-// KEIN 'use server' hier! Diese Datei wird von API-Route-Handlern importiert.
-// 'use server' wuerde einen Build-Fehler verursachen (Server Actions != Route Handlers).
+"use server";
+
 export interface ShopifyVariant {
   id: string;
   title: string;
   inventoryQuantity: number;
   availableForSale: boolean;
 }
+
 export interface ShopifyProduct {
   id: string;
   title: string;
@@ -16,50 +17,30 @@ export interface ShopifyProduct {
   variantId: string;
   variants: ShopifyVariant[];
 }
+
 export type GetLiveProductsResult = {
   products: ShopifyProduct[];
   error?: string;
-  debug?: string;
 };
+
 export async function getLiveProducts(): Promise<GetLiveProductsResult> {
   try {
-    // Priority: SHOPIFY_MYSHOPIFY_DOMAIN > SHOPIFY_STORE_DOMAIN > NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN
-    const rawDomain =
-      process.env.SHOPIFY_MYSHOPIFY_DOMAIN ||
-      process.env.SHOPIFY_STORE_DOMAIN ||
-      process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN;
-    const storefrontAccessToken = process.env.SHOPIFY_ACCESS_TOKEN;
-    if (!rawDomain) {
-      const errorMsg = "SHOPIFY_STORE_DOMAIN ist nicht gesetzt!";
+    const rawDomain = process.env.SHOPIFY_STORE_DOMAIN || process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || "jayjaym.com";
+    // Strip protocol and trailing slash if present
+    const cleanDomain = rawDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const domain = cleanDomain === "jayjaym.com" ? "www.jayjaym.com" : cleanDomain;
+    const storefrontAccessToken = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || process.env.ACCESS_TOKEN;
+
+    if (!domain || !storefrontAccessToken) {
+      const errorMsg = `Shopify credentials missing. Domain: ${domain ? 'Set' : 'Missing'}, Token: ${storefrontAccessToken ? 'Set' : 'Missing'}`;
       console.error(errorMsg);
-      return { products: [], error: errorMsg, debug: `Domain: undefined, Token-Laenge: ${storefrontAccessToken?.length ?? 0}` };
+      return { products: [], error: errorMsg };
     }
-    let domain = rawDomain
-      .replace(/^https?:\/\//, '')
-      .replace(/\/$/, '');
-    const tokenLen = storefrontAccessToken?.length ?? 0;
-    console.log(`[Shopify] Domain: ${domain}, Token-Laenge: ${tokenLen}`);
-    if (!domain.includes('.myshopify.com')) {
-      const errorMsg = `Shopify Domain-Fehler: "${domain}" ist keine .myshopify.com Domain. Bitte setze SHOPIFY_MYSHOPIFY_DOMAIN=<shopname>.myshopify.com in den Vercel Environment Variables.`;
-      console.error('[Shopify] KRITISCH:', errorMsg);
-      return {
-        products: [],
-        error: errorMsg,
-        debug: `Domain: ${domain}, Token-Laenge: ${tokenLen}`,
-      };
-    }
-    if (!storefrontAccessToken) {
-      const errorMsg = "SHOPIFY_ACCESS_TOKEN ist nicht gesetzt!";
-      console.error(errorMsg);
-      return { products: [], error: errorMsg, debug: `Domain: ${domain}, Token-Laenge: 0` };
-    }
+
     const url = `https://${domain}/api/2024-01/graphql.json`;
     const query = `
       query {
-        shop {
-          name
-        }
-        products(first: 20) {
+        products(first: 250) {
           edges {
             node {
               id
@@ -94,72 +75,67 @@ export async function getLiveProducts(): Promise<GetLiveProductsResult> {
         }
       }
     `;
+
     const response = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Storefront-Access-Token': storefrontAccessToken,
-        'User-Agent': 'Vercel-Server-Fetch',
+        "Content-Type": "application/json",
+        "X-Shopify-Storefront-Access-Token": storefrontAccessToken,
       },
       body: JSON.stringify({ query }),
-      cache: 'no-store',
+      cache: 'no-store'
     });
+
     if (!response.ok) {
-      const body = await response.text();
-      const errorMsg = `Shopify API ${response.status} ${response.statusText}: ${body}`;
-      console.error('Shopify Fetch fehlgeschlagen bei:', url);
-      return { products: [], error: errorMsg, debug: `Domain: ${domain}, Token-Laenge: ${tokenLen}` };
-    }
-    const json = await response.json();
-    const shopName = json?.data?.shop?.name;
-    console.log(`[Shopify] Shop-Name: ${shopName ?? 'UNBEKANNT'}, GraphQL-Fehler: ${json.errors ? JSON.stringify(json.errors) : 'keine'}`);
-    if (json.errors) {
-      const errorMsg = `Shopify GraphQL Fehler: ${JSON.stringify(json.errors)}`;
-      console.error('Shopify Fetch fehlgeschlagen bei:', url);
-      return { products: [], error: errorMsg, debug: `Domain: ${domain}, Token-Laenge: ${tokenLen}, Shop: ${shopName ?? 'n/a'}` };
-    }
-    const productEdges = json.data?.products?.edges;
-    const productNodes = json.data?.products?.nodes;
-    const rawProducts = productEdges
-      ? productEdges.map((e: any) => e.node)
-      : productNodes ?? [];
-    if (!rawProducts || rawProducts.length === 0) {
-      const debugMsg = `Domain: ${domain}, Token-Laenge: ${tokenLen}, Shop: ${shopName ?? 'n/a'}`;
-      const errorMsg = `Shopify liefert 0 Produkte. Debug-Info: ${debugMsg}. Checke Kanal-Berechtigung im Shopify Admin unter Einstellungen > Apps > Storefront API.`;
+      const errorMsg = `Shopify API response not OK: ${response.status} ${response.statusText}`;
       console.error(errorMsg);
-      return { products: [], error: errorMsg, debug: debugMsg };
+      return { products: [], error: errorMsg };
     }
-    const products: ShopifyProduct[] = rawProducts.map((node: any) => {
-      const variantEdges = node.variants?.edges ?? [];
-      const variants: ShopifyVariant[] = (
-        variantEdges.length > 0
-          ? variantEdges.map((v: any) => v.node)
-          : node.variants?.nodes ?? []
-      ).map((v: any) => ({
-        id: (v.id ?? '').split('/').pop() ?? v.id,
-        title: v.title,
-        inventoryQuantity: v.quantityAvailable || 0,
-        availableForSale: v.availableForSale,
+
+    const json = await response.json();
+
+    if (json.errors) {
+      const errorMsg = `Shopify GraphQL errors: ${JSON.stringify(json.errors)}`;
+      console.error(errorMsg);
+      return { products: [], error: errorMsg };
+    }
+
+    if (!json.data || !json.data.products) {
+      const errorMsg = `Shopify API empty response: ${JSON.stringify(json)}`;
+      console.error(errorMsg);
+      return { products: [], error: errorMsg };
+    }
+
+    const products = json.data.products.edges.map((edge: any) => {
+      const variants = edge.node.variants.edges.map((v: any) => ({
+        id: v.node.id.split("/").pop(),
+        title: v.node.title,
+        inventoryQuantity: v.node.quantityAvailable || 0,
+        availableForSale: v.node.availableForSale,
       }));
-      const imageEdges = node.images?.edges ?? [];
-      const firstImageUrl = imageEdges.length > 0
-        ? imageEdges[0]?.node?.url
-        : node.images?.nodes?.[0]?.url ?? '';
+
       return {
-        id: node.id,
-        title: node.title,
-        handle: node.handle,
-        price: node.priceRange?.minVariantPrice?.amount ?? '0',
-        currency: node.priceRange?.minVariantPrice?.currencyCode ?? 'EUR',
-        imageUrl: (firstImageUrl || '').replace(/^http:\/\//, 'https://'),
-        variantId: variants[0]?.id ?? '',
-        variants,
+        id: edge.node.id,
+        title: edge.node.title,
+        handle: edge.node.handle,
+        price: edge.node.priceRange.minVariantPrice.amount,
+        currency: edge.node.priceRange.minVariantPrice.currencyCode,
+        imageUrl: (edge.node.images.edges[0]?.node.url || "").replace(/^http:\/\//, 'https://'),
+        variantId: variants[0]?.id || "",
+        variants: variants,
       };
     });
-    console.log(`[Shopify] ${products.length} Produkte geladen. Shop: ${shopName}`);
+
+    if (products.length === 0) {
+      const errorMsg = `Shopify API returned 0 products. Query successful but list is empty.`;
+      console.warn(errorMsg);
+      return { products: [], error: errorMsg };
+    }
+
     return { products };
   } catch (error: any) {
-    console.error('Shopify Fetch fehlgeschlagen bei:', error?.message, error?.stack);
-    return { products: [], error: `Shopify Fetch Fehler: ${error.message}` };
+    const errorMsg = `Error fetching Shopify products: ${error.message}`;
+    console.error(errorMsg, error);
+    return { products: [], error: errorMsg };
   }
 }
