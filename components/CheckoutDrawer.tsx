@@ -105,7 +105,7 @@ export function CheckoutDrawer({ product, isOpen, onClose }: CheckoutDrawerProps
             ) : (
               <button
                 onClick={() => {
-                  window.open(checkoutUrl, '_blank', 'noreferrer');
+                  const win = window.open('about:blank', '_blank'); if (win) { win.opener = null; win.document.write('<meta http-equiv="refresh" content="0;url=' + checkoutUrl + '">'); win.document.close(); }
                   onClose();
                 }}
                 className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 px-6 rounded-xl text-lg font-bold transition-colors shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
